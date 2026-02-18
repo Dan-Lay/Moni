@@ -1,21 +1,23 @@
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useFinance } from "@/contexts/DataContext";
-import { CATEGORY_LABELS } from "@/lib/types";
+import { CATEGORY_LABELS, TransactionCategory } from "@/lib/types";
 import { ChartSkeleton } from "./Skeletons";
+import { TransactionDetailPanel } from "./TransactionDetailPanel";
+import { useState } from "react";
 
 // Fixed color map: categories with strong semantic meaning get pinned colors
 const CATEGORY_FIXED_COLORS: Record<string, string> = {
-  "Ajuda Mãe": "hsl(270, 70%, 58%)",      // Distinct violet — inegociável
-  "Investimentos": "hsl(160, 84%, 39%)",   // Primary emerald
-  "Fixas": "hsl(200, 80%, 50%)",           // Info blue
-  "Supermercado": "hsl(43, 96%, 56%)",     // Amber
-  "Alimentação": "hsl(20, 80%, 55%)",      // Orange
-  "Lazer": "hsl(340, 75%, 55%)",           // Pink/red
-  "Transporte": "hsl(100, 60%, 45%)",      // Green
-  "Saúde": "hsl(190, 70%, 50%)",           // Teal
-  "Compras": "hsl(240, 50%, 55%)",         // Indigo
-  "Outros": "hsl(0, 0%, 55%)",             // Neutral gray
+  "Ajuda Mãe": "hsl(270, 70%, 58%)",
+  "Investimentos": "hsl(160, 84%, 39%)",
+  "Fixas": "hsl(200, 80%, 50%)",
+  "Supermercado": "hsl(43, 96%, 56%)",
+  "Alimentação": "hsl(20, 80%, 55%)",
+  "Lazer": "hsl(340, 75%, 55%)",
+  "Transporte": "hsl(100, 60%, 45%)",
+  "Saúde": "hsl(190, 70%, 50%)",
+  "Compras": "hsl(240, 50%, 55%)",
+  "Outros": "hsl(0, 0%, 55%)",
 };
 
 const FALLBACK_COLORS = [
@@ -36,8 +38,14 @@ const DEMO_DATA = [
 const getColor = (name: string, index: number): string =>
   CATEGORY_FIXED_COLORS[name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 
+// Reverse lookup: label → category key
+const LABEL_TO_KEY: Record<string, TransactionCategory> = Object.fromEntries(
+  Object.entries(CATEGORY_LABELS).map(([k, v]) => [v, k as TransactionCategory])
+);
+
 export const ExpensePieChart = () => {
   const { finance, isLoading } = useFinance();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   if (isLoading) return <ChartSkeleton />;
 
   const byCategory = finance.categoryBreakdown;
@@ -48,6 +56,13 @@ export const ExpensePieChart = () => {
         value: Math.round(val),
       }))
     : DEMO_DATA;
+
+  // Get transactions for a category label
+  const getCategoryTxs = (label: string) => {
+    const catKey = LABEL_TO_KEY[label];
+    if (!catKey) return [];
+    return finance.monthTransactions.filter((t) => t.amount < 0 && t.category === catKey);
+  };
 
   return (
     <motion.div
@@ -73,6 +88,12 @@ export const ExpensePieChart = () => {
                 paddingAngle={3}
                 dataKey="value"
                 strokeWidth={0}
+                onClick={(_, idx) => {
+                  if (!hasData) return;
+                  const name = chartData[idx]?.name;
+                  setSelectedCategory(selectedCategory === name ? null : name);
+                }}
+                className="cursor-pointer"
               >
                 {chartData.map((item, i) => (
                   <Cell
@@ -80,6 +101,7 @@ export const ExpensePieChart = () => {
                     fill={getColor(item.name, i)}
                     stroke={item.name === "Ajuda Mãe" ? "hsl(270, 70%, 72%)" : "none"}
                     strokeWidth={item.name === "Ajuda Mãe" ? 2 : 0}
+                    opacity={selectedCategory && selectedCategory !== item.name ? 0.4 : 1}
                   />
                 ))}
               </Pie>
@@ -96,23 +118,37 @@ export const ExpensePieChart = () => {
           </ResponsiveContainer>
         </div>
         <div className="flex-1 space-y-2">
-          {chartData.map((item, i) => (
-            <div key={item.name} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <div
-                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                  style={{
-                    background: getColor(item.name, i),
-                    boxShadow: item.name === "Ajuda Mãe" ? `0 0 6px hsl(270, 70%, 58%)` : "none",
+          {chartData.map((item, i) => {
+            const txs = hasData ? getCategoryTxs(item.name) : [];
+            return (
+              <div key={item.name}>
+                <button
+                  onClick={() => {
+                    if (!hasData) return;
+                    setSelectedCategory(selectedCategory === item.name ? null : item.name);
                   }}
-                />
-                <span className={`text-muted-foreground ${item.name === "Ajuda Mãe" ? "font-semibold" : ""}`}>
-                  {item.name}
-                </span>
+                  className="flex w-full items-center justify-between text-xs hover:bg-secondary/30 rounded px-1 py-0.5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                      style={{
+                        background: getColor(item.name, i),
+                        boxShadow: item.name === "Ajuda Mãe" ? `0 0 6px hsl(270, 70%, 58%)` : "none",
+                      }}
+                    />
+                    <span className={`text-muted-foreground ${item.name === "Ajuda Mãe" ? "font-semibold" : ""}`}>
+                      {item.name}
+                    </span>
+                  </div>
+                  <span className="font-mono font-medium">R$ {item.value.toLocaleString("pt-BR")}</span>
+                </button>
+                {hasData && selectedCategory === item.name && txs.length > 0 && (
+                  <TransactionDetailPanel transactions={txs} label={item.name} />
+                )}
               </div>
-              <span className="font-mono font-medium">R$ {item.value.toLocaleString("pt-BR")}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </motion.div>
