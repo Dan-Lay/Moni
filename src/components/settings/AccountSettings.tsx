@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-type ViewProfile = "marido" | "esposa";
+type ViewProfile = "marido" | "esposa" | "todos";
 
 interface Props {
   onBack: () => void;
@@ -75,8 +75,8 @@ export const AccountSettings = ({ onBack }: Props) => {
           <p className="text-sm font-semibold">Perfil de Visualização Padrão</p>
           <p className="text-xs text-muted-foreground">Define qual perspectiva o Dashboard carrega por padrão.</p>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            {(["marido", "esposa"] as ViewProfile[]).map((p) => (
+          <div className="grid grid-cols-3 gap-3 pt-1">
+            {(["todos", "marido", "esposa"] as ViewProfile[]).map((p) => (
               <button
                 key={p}
                 onClick={() => handleProfileChange(p)}
@@ -86,7 +86,7 @@ export const AccountSettings = ({ onBack }: Props) => {
                     : "border-border bg-card text-muted-foreground hover:border-primary/30"
                 }`}
               >
-                {p === "marido" ? "🧔 Marido" : "👩 Esposa"}
+                {p === "todos" ? "👨‍👩‍👧 Família" : p === "marido" ? "🧔 Marido" : "👩 Esposa"}
               </button>
             ))}
           </div>

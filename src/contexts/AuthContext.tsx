@@ -5,7 +5,7 @@ export interface UserProfile {
   name: string;
   email: string;
   avatarUrl: string;
-  defaultProfile: "marido" | "esposa";
+  defaultProfile: "marido" | "esposa" | "todos";
   mfaEnabled: boolean;
 }
 
@@ -34,7 +34,7 @@ const MOCK_USER: UserProfile = {
   name: "Guerreiro(a)",
   email: "guerreiro@finwar.app",
   avatarUrl: "",
-  defaultProfile: "marido",
+  defaultProfile: "todos",
   mfaEnabled: false,
 };
 
