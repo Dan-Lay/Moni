@@ -85,11 +85,16 @@ export interface FinancialConfig {
   readonly cotacaoDolar: number;
   readonly reservaUSD: number;
   readonly metaUSD: number;
+  readonly cotacaoEuro: number;
+  readonly reservaEUR: number;
+  readonly metaEUR: number;
   readonly cotacaoMediaDCA: number;
+  readonly cotacaoMediaDCAEUR: number;
   readonly maxJantaresMes: number;
   readonly maxGastoJantar: number;
   readonly aportePercentual: number;
   readonly iofInternacional: number; // 4.38% for 2026
+  readonly limiteSeguranca: number; // Safety floor for cash flow chart
 }
 
 export interface DesapegoItem {
