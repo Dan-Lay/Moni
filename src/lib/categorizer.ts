@@ -1,4 +1,14 @@
-import { Transaction, TransactionCategory, TransactionSource } from "./types";
+import { Transaction, TransactionCategory, TransactionSource, toISODate, toBRL, toMiles } from "./types";
+
+// ── IOF rate for international purchases (2026) ──
+const IOF_INTERNACIONAL = 0.0438; // 4.38%
+
+// ── International detection ──
+const INTERNATIONAL_KEYWORDS = /USD|EUR|GBP|CHF|JPY|INTERNACIONAL|INTL|FOREIGN|EXTERIOR|COMPRA\s*INTER|EUROPE|AMAZON\.COM(?!\.BR)|BOOKING|AIRBNB|UBER\s+TRIP|PAYPAL/i;
+
+export function isInternationalTransaction(description: string): boolean {
+  return INTERNATIONAL_KEYWORDS.test(description);
+}
 
 // ── Category rules via regex keywords ──
 const CATEGORY_RULES: { category: TransactionCategory; keywords: RegExp }[] = [
@@ -16,14 +26,11 @@ const CATEGORY_RULES: { category: TransactionCategory; keywords: RegExp }[] = [
 export function categorizeTransaction(description: string): TransactionCategory {
   const desc = description.toUpperCase();
   for (const rule of CATEGORY_RULES) {
-    if (rule.keywords.test(desc)) {
-      return rule.category;
-    }
+    if (rule.keywords.test(desc)) return rule.category;
   }
   return "outros";
 }
 
-// ── Source detection from description or file context ──
 export function detectSource(description: string, fileHint?: string): TransactionSource {
   const d = (description + " " + (fileHint || "")).toLowerCase();
   if (/santander/.test(d)) return "santander";
@@ -32,20 +39,25 @@ export function detectSource(description: string, fileHint?: string): Transactio
   return "unknown";
 }
 
-// ── Miles calculation: (BRL / cotacao) * 2 — only for Santander ──
+// ── Miles calculation with IOF for international ──
 const DOLLAR_RATE = 5.0;
 
-export function calculateMiles(amount: number, source: TransactionSource): number {
-  if (source !== "santander" || amount >= 0) return 0;
-  return Math.round((Math.abs(amount) / DOLLAR_RATE) * 2);
+export function calculateMiles(amount: number, source: TransactionSource, isIntl: boolean): { miles: number; iof: number } {
+  if (source !== "santander" || amount >= 0) return { miles: 0, iof: 0 };
+
+  const absAmount = Math.abs(amount);
+  const iof = isIntl ? absAmount * IOF_INTERNACIONAL : 0;
+  // Miles based on the total charged amount (includes IOF)
+  const totalCharged = absAmount + iof;
+  const miles = Math.round((totalCharged / DOLLAR_RATE) * 2);
+
+  return { miles, iof };
 }
 
-// ── Check if spending is "inefficient" (not generating AA miles) ──
 export function isInefficient(source: TransactionSource): boolean {
   return source === "bradesco" || source === "nubank";
 }
 
-// ── Build a Transaction object from raw parsed data ──
 let counter = 0;
 export function buildTransaction(
   date: string,
@@ -55,23 +67,25 @@ export function buildTransaction(
 ): Transaction {
   const source = detectSource(description, fileSourceHint);
   const category = categorizeTransaction(description);
-  const miles = calculateMiles(amount, source);
+  const isIntl = isInternationalTransaction(description);
+  const { miles, iof } = calculateMiles(amount, source, isIntl);
 
   return {
     id: `tx_${Date.now()}_${counter++}`,
-    date,
+    date: toISODate(date),
     description,
-    amount,
+    amount: toBRL(amount),
     source,
     category,
-    milesGenerated: miles,
+    milesGenerated: toMiles(miles),
     isInefficient: isInefficient(source),
+    isInternational: isIntl,
+    iofAmount: toBRL(iof),
     establishment: extractEstablishment(description),
   };
 }
 
 function extractEstablishment(desc: string): string {
-  // Clean common OFX prefixes
   return desc
     .replace(/^(COMPRA|PGTO|PAG|DEB|TRANSF|PIX)\s*/i, "")
     .replace(/\s{2,}/g, " ")
@@ -79,7 +93,6 @@ function extractEstablishment(desc: string): string {
     .substring(0, 50);
 }
 
-// ── Determine if a transaction is a "dinner" (restaurant) ──
 export function isDinnerTransaction(t: Transaction): boolean {
   return t.category === "alimentacao" || /restaurante|jantar|dinner/i.test(t.description);
 }
