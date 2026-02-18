@@ -1,5 +1,5 @@
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { LayoutDashboard, PieChart, Plus, ShoppingBag, Settings } from "lucide-react";
+import { LayoutDashboard, PieChart, Plus, CalendarClock, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -7,7 +7,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: PieChart, label: "Gastos", path: "/expenses" },
   null, // placeholder for FAB
-  { icon: ShoppingBag, label: "Desapego", path: "/desapego" },
+  { icon: CalendarClock, label: "Contas", path: "/planned" },
   { icon: Settings, label: "Config", path: "/settings" },
 ];
 

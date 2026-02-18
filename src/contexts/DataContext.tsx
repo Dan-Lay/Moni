@@ -1,14 +1,15 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import {
-  AppData, Transaction, FinancialConfig, DesapegoItem,
-  EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
+  AppData, Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
+  EfficiencyStats, MonthSummary, EstablishmentRank,
   SpouseProfile,
 } from "@/lib/types";
 import {
   loadAppData, addTransactions as addTxs, updateConfig as updCfg,
   updateDesapego as updDesapego, updateJantares as updJantares,
+  addPlannedEntry as addPE, updatePlannedEntry as updatePE, deletePlannedEntry as deletePE,
   getCurrentMonthTransactions, efficiencyStats, getMonthSummary,
-  buildCashFlowProjection, topEstablishments, totalMilesFromTransactions,
+  buildCashFlowProjection, CashFlowPointExtended, topEstablishments, totalMilesFromTransactions,
   sumByCategory,
 } from "@/lib/storage";
 
@@ -20,7 +21,7 @@ interface FinanceState {
   readonly monthTransactions: Transaction[];
   readonly efficiency: EfficiencyStats;
   readonly monthSummary: MonthSummary;
-  readonly cashFlow: CashFlowPoint[];
+  readonly cashFlow: CashFlowPointExtended[];
   readonly topEstablishments: EstablishmentRank[];
   readonly totalMilesEarned: number;
   readonly categoryBreakdown: Record<string, number>;
@@ -38,6 +39,9 @@ interface FinanceContextType {
   updateConfig: (partial: Partial<FinancialConfig>) => void;
   updateDesapego: (items: DesapegoItem[]) => void;
   updateJantares: (count: number) => void;
+  addPlannedEntry: (e: PlannedEntry) => void;
+  updatePlannedEntry: (id: string, patch: Partial<PlannedEntry>) => void;
+  deletePlannedEntry: (id: string) => void;
   reload: () => void;
 }
 
@@ -61,7 +65,7 @@ function computeFinance(data: AppData, profile: ProfileFilter): FinanceState {
     monthTransactions: monthTxs,
     efficiency: efficiencyStats(monthTxs),
     monthSummary: getMonthSummary(data.transactions, data.config),
-    cashFlow: buildCashFlowProjection(data.transactions, data.config),
+    cashFlow: buildCashFlowProjection(data.transactions, data.config, data.plannedEntries ?? []),
     topEstablishments: topEstablishments(monthTxs, 5, profile),
     totalMilesEarned: totalMilesFromTransactions(data.transactions),
     categoryBreakdown: sumByCategory(monthTxs, profile),
@@ -100,6 +104,21 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setData({ ...updated });
   }, []);
 
+  const handleAddPlannedEntry = useCallback((entry: PlannedEntry) => {
+    const updated = addPE(entry);
+    setData({ ...updated });
+  }, []);
+
+  const handleUpdatePlannedEntry = useCallback((id: string, patch: Partial<PlannedEntry>) => {
+    const updated = updatePE(id, patch);
+    setData({ ...updated });
+  }, []);
+
+  const handleDeletePlannedEntry = useCallback((id: string) => {
+    const updated = deletePE(id);
+    setData({ ...updated });
+  }, []);
+
   const reload = useCallback(() => {
     setIsLoading(true);
     setData(loadAppData());
@@ -111,7 +130,11 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       value={{
         data, finance, isLoading,
         profileFilter, setProfileFilter,
-        addTransactions, updateConfig, updateDesapego, updateJantares, reload,
+        addTransactions, updateConfig, updateDesapego, updateJantares,
+        addPlannedEntry: handleAddPlannedEntry,
+        updatePlannedEntry: handleUpdatePlannedEntry,
+        deletePlannedEntry: handleDeletePlannedEntry,
+        reload,
       }}
     >
       {children}

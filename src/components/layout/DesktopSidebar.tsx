@@ -1,10 +1,12 @@
 import { useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, PieChart, Upload, ShoppingBag, Settings, Plane, Swords } from "lucide-react";
+import { LayoutDashboard, PieChart, Upload, ShoppingBag, Settings, Plane, Swords, ListOrdered, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: PieChart, label: "Gastos", path: "/expenses" },
+  { icon: ListOrdered, label: "Transações", path: "/transactions" },
+  { icon: CalendarClock, label: "Contas a Pagar", path: "/planned" },
   { icon: Upload, label: "Upload", path: "/upload" },
   { icon: ShoppingBag, label: "Desapego", path: "/desapego" },
   { icon: Settings, label: "Configurações", path: "/settings" },

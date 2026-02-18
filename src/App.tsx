@@ -10,6 +10,8 @@ import Expenses from "./pages/Expenses";
 import UploadPage from "./pages/UploadPage";
 import Desapego from "./pages/Desapego";
 import SettingsPage from "./pages/SettingsPage";
+import Transactions from "./pages/Transactions";
+import PlannedEntries from "./pages/PlannedEntries";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/expenses" element={<Expenses />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/planned" element={<PlannedEntries />} />
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/desapego" element={<Desapego />} />
               <Route path="/settings" element={<SettingsPage />} />
@@ -38,3 +42,4 @@ const App = () => (
 );
 
 export default App;
+
