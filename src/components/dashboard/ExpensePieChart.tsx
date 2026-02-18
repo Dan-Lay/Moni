@@ -4,17 +4,37 @@ import { useFinance } from "@/contexts/DataContext";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { ChartSkeleton } from "./Skeletons";
 
-const COLORS = [
-  "hsl(160, 84%, 39%)", "hsl(200, 80%, 50%)", "hsl(280, 65%, 60%)",
-  "hsl(43, 96%, 56%)", "hsl(160, 84%, 55%)", "hsl(340, 75%, 55%)",
-  "hsl(20, 80%, 55%)", "hsl(100, 60%, 45%)", "hsl(240, 50%, 55%)", "hsl(0, 60%, 50%)",
+// Fixed color map: categories with strong semantic meaning get pinned colors
+const CATEGORY_FIXED_COLORS: Record<string, string> = {
+  "Ajuda Mãe": "hsl(270, 70%, 58%)",      // Distinct violet — inegociável
+  "Investimentos": "hsl(160, 84%, 39%)",   // Primary emerald
+  "Fixas": "hsl(200, 80%, 50%)",           // Info blue
+  "Supermercado": "hsl(43, 96%, 56%)",     // Amber
+  "Alimentação": "hsl(20, 80%, 55%)",      // Orange
+  "Lazer": "hsl(340, 75%, 55%)",           // Pink/red
+  "Transporte": "hsl(100, 60%, 45%)",      // Green
+  "Saúde": "hsl(190, 70%, 50%)",           // Teal
+  "Compras": "hsl(240, 50%, 55%)",         // Indigo
+  "Outros": "hsl(0, 0%, 55%)",             // Neutral gray
+};
+
+const FALLBACK_COLORS = [
+  "hsl(160, 84%, 39%)", "hsl(200, 80%, 50%)", "hsl(43, 96%, 56%)",
+  "hsl(340, 75%, 55%)", "hsl(20, 80%, 55%)", "hsl(100, 60%, 45%)",
+  "hsl(240, 50%, 55%)", "hsl(0, 60%, 50%)",
 ];
 
 const DEMO_DATA = [
-  { name: "Supermercado", value: 2200 }, { name: "Fixas", value: 3500 },
-  { name: "Ajuda Mãe", value: 800 }, { name: "Lazer", value: 600 },
-  { name: "Investimentos", value: 1450 }, { name: "Outros", value: 950 },
+  { name: "Supermercado", value: 2200 },
+  { name: "Fixas", value: 3500 },
+  { name: "Ajuda Mãe", value: 800 },
+  { name: "Lazer", value: 600 },
+  { name: "Investimentos", value: 1450 },
+  { name: "Outros", value: 950 },
 ];
+
+const getColor = (name: string, index: number): string =>
+  CATEGORY_FIXED_COLORS[name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 
 export const ExpensePieChart = () => {
   const { finance, isLoading } = useFinance();
@@ -30,7 +50,12 @@ export const ExpensePieChart = () => {
     : DEMO_DATA;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-2xl p-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4 }}
+      className="glass-card rounded-2xl p-5"
+    >
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">
         Gastos por Categoria
         {!hasData && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
@@ -39,10 +64,34 @@ export const ExpensePieChart = () => {
         <div className="h-44 w-44 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={70}
+                paddingAngle={3}
+                dataKey="value"
+                strokeWidth={0}
+              >
+                {chartData.map((item, i) => (
+                  <Cell
+                    key={i}
+                    fill={getColor(item.name, i)}
+                    stroke={item.name === "Ajuda Mãe" ? "hsl(270, 70%, 72%)" : "none"}
+                    strokeWidth={item.name === "Ajuda Mãe" ? 2 : 0}
+                  />
+                ))}
               </Pie>
-              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.75rem", fontSize: "12px" }} formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR")}`, ""]} />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.75rem",
+                  fontSize: "12px",
+                }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR")}`, ""]}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -50,8 +99,16 @@ export const ExpensePieChart = () => {
           {chartData.map((item, i) => (
             <div key={item.name} className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
-                <span className="text-muted-foreground">{item.name}</span>
+                <div
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{
+                    background: getColor(item.name, i),
+                    boxShadow: item.name === "Ajuda Mãe" ? `0 0 6px hsl(270, 70%, 58%)` : "none",
+                  }}
+                />
+                <span className={`text-muted-foreground ${item.name === "Ajuda Mãe" ? "font-semibold" : ""}`}>
+                  {item.name}
+                </span>
               </div>
               <span className="font-mono font-medium">R$ {item.value.toLocaleString("pt-BR")}</span>
             </div>

@@ -13,11 +13,16 @@ const DEFAULT_CONFIG: FinancialConfig = {
   cotacaoDolar: 5.0,
   reservaUSD: 1200,
   metaUSD: 8000,
+  cotacaoEuro: 5.65,
+  reservaEUR: 500,
+  metaEUR: 6000,
   cotacaoMediaDCA: 5.42,
+  cotacaoMediaDCAEUR: 5.80,
   maxJantaresMes: 2,
   maxGastoJantar: 250,
   aportePercentual: 15,
   iofInternacional: 4.38,
+  limiteSeguranca: 2000,
 };
 
 const DEFAULT_DESAPEGO: DesapegoItem[] = [
