@@ -1,16 +1,22 @@
 import { Store } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAppData } from "@/contexts/DataContext";
+import { topEstablishments as getTopEst, getCurrentMonthTransactions } from "@/lib/storage";
 
-const establishments = [
-  { name: "Assaí Atacadista", amount: 1240, category: "Supermercado" },
-  { name: "Shell Combustível", amount: 890, category: "Transporte" },
-  { name: "iFood", amount: 560, category: "Alimentação" },
-  { name: "Drogaria SP", amount: 420, category: "Saúde" },
-  { name: "Amazon BR", amount: 380, category: "Compras" },
+const DEMO = [
+  { name: "Assaí Atacadista", amount: 1240 },
+  { name: "Shell Combustível", amount: 890 },
+  { name: "iFood", amount: 560 },
+  { name: "Drogaria SP", amount: 420 },
+  { name: "Amazon BR", amount: 380 },
 ];
 
 export const TopEstablishments = () => {
-  const maxAmount = establishments[0].amount;
+  const { data } = useAppData();
+  const monthTxs = getCurrentMonthTransactions(data.transactions);
+  const live = getTopEst(monthTxs, 5);
+  const establishments = live.length > 0 ? live : DEMO;
+  const maxAmount = establishments[0]?.amount || 1;
 
   return (
     <motion.div
@@ -21,7 +27,10 @@ export const TopEstablishments = () => {
     >
       <div className="mb-4 flex items-center gap-2">
         <Store className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-medium text-muted-foreground">Top 5 Estabelecimentos</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">
+          Top 5 Estabelecimentos
+          {live.length === 0 && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
+        </h3>
       </div>
 
       <div className="space-y-3">

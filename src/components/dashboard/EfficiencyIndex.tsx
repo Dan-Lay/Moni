@@ -1,12 +1,16 @@
 import { Zap, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAppData } from "@/contexts/DataContext";
+import { efficiencyStats, getCurrentMonthTransactions } from "@/lib/storage";
 
 export const EfficiencyIndex = () => {
-  const totalGastos = 9500;
-  const gastosSantander = 7800;
-  const gastosOutros = totalGastos - gastosSantander;
-  const eficiencia = (gastosSantander / totalGastos) * 100;
-  const milhasPerdidas = Math.round(gastosOutros / 5.0) * 2;
+  const { data } = useAppData();
+  const monthTxs = getCurrentMonthTransactions(data.transactions);
+  const stats = efficiencyStats(monthTxs);
+
+  const hasData = stats.totalSpent > 0;
+  const eficiencia = hasData ? stats.efficiency : 82; // demo fallback
+  const milhasPerdidas = hasData ? stats.lostMiles : 680;
 
   return (
     <motion.div
@@ -20,6 +24,7 @@ export const EfficiencyIndex = () => {
           <Zap className="h-4 w-4 text-accent" />
           <h3 className="text-sm font-medium text-muted-foreground">Eficiência AAdvantage</h3>
         </div>
+        {!hasData && <span className="text-[10px] text-accent">demo</span>}
       </div>
 
       <div className="flex items-baseline gap-2">

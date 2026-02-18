@@ -1,11 +1,25 @@
-import { CreditCard, TrendingDown, AlertTriangle } from "lucide-react";
+import { CreditCard, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAppData } from "@/contexts/DataContext";
+import { getCurrentMonthTransactions } from "@/lib/storage";
 
 export const SaldoCard = () => {
-  const salario = 12000;
-  const faturaSantander = 4850;
-  const disponivel = salario - faturaSantander;
-  const percentPreso = (faturaSantander / salario) * 100;
+  const { data } = useAppData();
+  const { salario } = data.config;
+  const monthTxs = getCurrentMonthTransactions(data.transactions);
+
+  // Sum Santander debits as "fatura"
+  const faturaSantander = monthTxs
+    .filter((t) => t.source === "santander" && t.amount < 0)
+    .reduce((a, t) => a + Math.abs(t.amount), 0);
+
+  const totalDebits = monthTxs
+    .filter((t) => t.amount < 0)
+    .reduce((a, t) => a + Math.abs(t.amount), 0);
+
+  const fatura = faturaSantander || totalDebits * 0.5; // fallback if no santander data
+  const disponivel = salario - fatura;
+  const percentPreso = (fatura / salario) * 100;
 
   return (
     <motion.div
@@ -19,21 +33,21 @@ export const SaldoCard = () => {
       </div>
 
       <div className="mb-1 font-mono text-3xl font-bold tracking-tight">
-        R$ {disponivel.toLocaleString("pt-BR")}
+        R$ {disponivel.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
       </div>
       <p className="mb-4 text-xs text-muted-foreground">disponível após fatura</p>
 
       <div className="mb-2 flex justify-between text-xs">
         <span className="text-muted-foreground">Fatura Santander</span>
         <span className="font-mono font-semibold text-destructive">
-          R$ {faturaSantander.toLocaleString("pt-BR")}
+          R$ {fatura.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
         </span>
       </div>
 
       <div className="h-2 overflow-hidden rounded-full bg-secondary">
         <motion.div
           initial={{ width: 0 }}
-          animate={{ width: `${percentPreso}%` }}
+          animate={{ width: `${Math.min(percentPreso, 100)}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
           className="h-full rounded-full bg-destructive"
         />
