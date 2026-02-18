@@ -75,7 +75,16 @@ function computeFinance(data: AppData, profile: ProfileFilter): FinanceState {
 export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<AppData>(loadAppData);
   const [isLoading, setIsLoading] = useState(true);
-  const [profileFilter, setProfileFilter] = useState<ProfileFilter>("todos");
+  const [profileFilter, setProfileFilter] = useState<ProfileFilter>(() => {
+    const saved = localStorage.getItem("finwar_user_profile");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.defaultProfile) return parsed.defaultProfile as ProfileFilter;
+      } catch {}
+    }
+    return "todos";
+  });
 
   // Simulate initial load (for skeleton UX)
   useState(() => {
