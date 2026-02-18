@@ -31,6 +31,30 @@ export const formatMiles = (miles: number): string =>
 // ── Enums ──
 export type TransactionSource = "santander" | "bradesco" | "nubank" | "unknown";
 
+// ── Recurrence types for manual entries ──
+export type RecurrenceType = "unico" | "diario" | "quinzenal" | "mensal" | "anual";
+
+export const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
+  unico: "Único",
+  diario: "Diário",
+  quinzenal: "Quinzenal",
+  mensal: "Mensal",
+  anual: "Anual",
+};
+
+export interface PlannedEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly amount: number; // negative = expense, positive = income
+  readonly category: TransactionCategory;
+  readonly dueDate: ISODateString; // next occurrence date
+  readonly recurrence: RecurrenceType;
+  readonly spouseProfile: SpouseProfile;
+  readonly conciliado: boolean;
+  readonly realAmount?: number; // actual amount after reconciliation
+  readonly createdAt: ISODateString;
+}
+
 /** Who made the transaction — detected automatically by card type */
 export type SpouseProfile = "marido" | "esposa" | "familia";
 
@@ -120,6 +144,7 @@ export interface AppData {
   readonly config: FinancialConfig;
   readonly desapegoItems: DesapegoItem[];
   readonly jantaresUsados: number;
+  readonly plannedEntries: PlannedEntry[];
   readonly updatedAt: ISODateString;
 }
 

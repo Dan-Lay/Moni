@@ -1,7 +1,7 @@
 import {
   AppData, FinancialConfig, DesapegoItem, Transaction,
   EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
-  SpouseProfile,
+  SpouseProfile, PlannedEntry,
   toISODate, toBRL, toMiles, toPercent,
 } from "./types";
 
@@ -40,6 +40,7 @@ function getDefaultData(): AppData {
     config: { ...DEFAULT_CONFIG },
     desapegoItems: [...DEFAULT_DESAPEGO],
     jantaresUsados: 0,
+    plannedEntries: [],
     updatedAt: toISODate(new Date().toISOString()),
   };
 }
@@ -109,6 +110,139 @@ export function updateJantares(count: number): AppData {
   const updated: AppData = { ...data, jantaresUsados: count };
   saveAppData(updated);
   return updated;
+}
+
+// ── Planned entries (manual + recurring) ──
+export function addPlannedEntry(entry: PlannedEntry): AppData {
+  const data = loadAppData();
+  const updated: AppData = {
+    ...data,
+    plannedEntries: [...(data.plannedEntries ?? []), entry],
+  };
+  saveAppData(updated);
+  return updated;
+}
+
+export function updatePlannedEntry(id: string, patch: Partial<PlannedEntry>): AppData {
+  const data = loadAppData();
+  const updated: AppData = {
+    ...data,
+    plannedEntries: (data.plannedEntries ?? []).map((e) =>
+      e.id === id ? { ...e, ...patch } : e
+    ),
+  };
+  saveAppData(updated);
+  return updated;
+}
+
+export function deletePlannedEntry(id: string): AppData {
+  const data = loadAppData();
+  const updated: AppData = {
+    ...data,
+    plannedEntries: (data.plannedEntries ?? []).filter((e) => e.id !== id),
+  };
+  saveAppData(updated);
+  return updated;
+}
+
+/**
+ * Returns PlannedEntry items whose dueDate is in the future (not yet conciliated),
+ * expanded for the current month based on recurrence.
+ */
+export function getFuturePlannedForMonth(entries: readonly PlannedEntry[]): PlannedEntry[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+
+  const result: PlannedEntry[] = [];
+  for (const e of entries) {
+    if (e.conciliado) continue;
+    const due = new Date(e.dueDate);
+    if (due >= monthStart && due <= monthEnd) {
+      result.push(e);
+    }
+  }
+  return result;
+}
+
+/**
+ * Reconciliation: tries to match a transaction against an unreconciled planned entry
+ * (same name fuzzy match, date within 3 days).
+ */
+export function tryReconcile(tx: Transaction, entries: readonly PlannedEntry[]): string | null {
+  const txDate = new Date(tx.date);
+  const txDesc = tx.description.toLowerCase();
+  for (const e of entries) {
+    if (e.conciliado) continue;
+    const entryDate = new Date(e.dueDate);
+    const dayDiff = Math.abs((txDate.getTime() - entryDate.getTime()) / 86400000);
+    const nameMatch = txDesc.includes(e.name.toLowerCase().substring(0, 5)) || e.name.toLowerCase().includes(txDesc.substring(0, 5));
+    if (dayDiff <= 3 && nameMatch) return e.id;
+  }
+  return null;
+}
+
+/** Edits a transaction in-place by id */
+export function editTransaction(id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile">>): AppData {
+  const data = loadAppData();
+  const updated: AppData = {
+    ...data,
+    transactions: data.transactions.map((t) =>
+      t.id === id ? { ...t, ...patch } : t
+    ),
+  };
+  saveAppData(updated);
+  return updated;
+}
+
+/**
+ * Historical price alert: compares current month avg per establishment
+ * vs previous 3 months. Returns list of flagged transaction ids.
+ */
+export function getPriceAlerts(txs: readonly Transaction[]): Set<string> {
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
+
+  // Group by establishment
+  const byEst: Record<string, { id: string; month: number; year: number; amount: number }[]> = {};
+  for (const t of txs) {
+    if (t.amount >= 0 || !t.establishment) continue;
+    const d = new Date(t.date);
+    const key = t.establishment.toLowerCase().trim();
+    if (!byEst[key]) byEst[key] = [];
+    byEst[key].push({ id: t.id, month: d.getMonth(), year: d.getFullYear(), amount: Math.abs(t.amount) });
+  }
+
+  const flagged = new Set<string>();
+
+  for (const [, entries] of Object.entries(byEst)) {
+    const current = entries.filter((e) => e.year === curYear && e.month === curMonth);
+    if (current.length === 0) continue;
+
+    // Previous 3 months
+    const prev3: number[] = [];
+    for (let i = 1; i <= 3; i++) {
+      let m = curMonth - i;
+      let y = curYear;
+      if (m < 0) { m += 12; y -= 1; }
+      const monthEntries = entries.filter((e) => e.year === y && e.month === m);
+      if (monthEntries.length > 0) {
+        const avg = monthEntries.reduce((a, e) => a + e.amount, 0) / monthEntries.length;
+        prev3.push(avg);
+      }
+    }
+    if (prev3.length === 0) continue;
+    const historicalAvg = prev3.reduce((a, v) => a + v, 0) / prev3.length;
+    const currentAvg = current.reduce((a, e) => a + e.amount, 0) / current.length;
+    if (currentAvg > historicalAvg * 1.2) {
+      current.forEach((e) => flagged.add(e.id));
+    }
+  }
+
+  return flagged;
 }
 
 // ── Computed helpers ──
@@ -210,10 +344,41 @@ export function getMonthSummary(txs: readonly Transaction[], config: FinancialCo
   };
 }
 
-export function buildCashFlowProjection(txs: readonly Transaction[], config: FinancialConfig): CashFlowPoint[] {
+export interface CashFlowPointExtended extends CashFlowPoint {
+  readonly projecao?: number; // future planned entries (dotted)
+}
+
+export function buildCashFlowProjection(
+  txs: readonly Transaction[],
+  config: FinancialConfig,
+  planned: readonly PlannedEntry[] = []
+): CashFlowPointExtended[] {
   const monthTxs = getCurrentMonthTransactions(txs);
-  if (monthTxs.length === 0) {
-    // Generate demo projection
+  const today = new Date();
+  const todayDay = today.getDate();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Accumulate real transactions
+  const byDay: Record<string, number> = {};
+  for (const t of monthTxs) {
+    const day = new Date(t.date).getDate().toString().padStart(2, "0");
+    byDay[day] = (byDay[day] || 0) + t.amount;
+  }
+
+  // Accumulate future planned entries (not conciliated)
+  const futurePlanned: Record<string, number> = {};
+  for (const e of planned) {
+    if (e.conciliado) continue;
+    const d = new Date(e.dueDate);
+    if (d.getFullYear() === year && d.getMonth() === month && d.getDate() > todayDay) {
+      const day = d.getDate().toString().padStart(2, "0");
+      futurePlanned[day] = (futurePlanned[day] || 0) + e.amount;
+    }
+  }
+
+  if (Object.keys(byDay).length === 0 && Object.keys(futurePlanned).length === 0) {
     const s = config.salarioLiquido;
     return [
       { dia: "01", saldo: s },
@@ -226,20 +391,30 @@ export function buildCashFlowProjection(txs: readonly Transaction[], config: Fin
     ];
   }
 
-  // Build cumulative from transactions
-  const sorted = [...monthTxs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   let saldo = config.salarioLiquido;
-  const points: CashFlowPoint[] = [{ dia: "01", saldo }];
+  const points: CashFlowPointExtended[] = [{ dia: "01", saldo }];
 
-  const byDay: Record<string, number> = {};
-  for (const t of sorted) {
-    const day = new Date(t.date).getDate().toString().padStart(2, "0");
-    byDay[day] = (byDay[day] || 0) + t.amount;
+  for (let d = 2; d <= daysInMonth; d++) {
+    const dia = d.toString().padStart(2, "0");
+    const realDelta = byDay[dia] || 0;
+    const plannedDelta = futurePlanned[dia] || 0;
+    const isPast = d <= todayDay;
+
+    if (isPast) {
+      saldo += realDelta;
+      if (realDelta !== 0) points.push({ dia, saldo: Math.round(saldo) });
+    } else if (plannedDelta !== 0) {
+      saldo += plannedDelta;
+      points.push({ dia, saldo: Math.round(saldo), projecao: Math.round(saldo) });
+    }
   }
 
-  for (const [dia, delta] of Object.entries(byDay).sort()) {
-    saldo += delta;
-    points.push({ dia, saldo: Math.round(saldo) });
+  // Ensure we always have a projection at end of month if there's future planned
+  if (Object.keys(futurePlanned).length > 0) {
+    const lastDia = daysInMonth.toString().padStart(2, "0");
+    if (!points.find((p) => p.dia === lastDia)) {
+      points.push({ dia: lastDia, projecao: Math.round(saldo) } as CashFlowPointExtended);
+    }
   }
 
   return points;
