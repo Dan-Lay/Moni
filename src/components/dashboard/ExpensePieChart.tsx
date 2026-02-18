@@ -79,7 +79,7 @@ export const ExpensePieChart = () => {
         <div className="h-44 w-44 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
+                <Pie
                 data={chartData}
                 cx="50%"
                 cy="50%"
@@ -88,6 +88,7 @@ export const ExpensePieChart = () => {
                 paddingAngle={3}
                 dataKey="value"
                 strokeWidth={0}
+                isAnimationActive={false}
                 onClick={(_, idx) => {
                   if (!hasData) return;
                   const name = chartData[idx]?.name;
