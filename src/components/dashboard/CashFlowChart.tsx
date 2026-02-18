@@ -103,6 +103,7 @@ export const CashFlowChart = () => {
               strokeWidth={2}
               fill="url(#saldoGrad)"
               connectNulls={false}
+              isAnimationActive={false}
             />
             {hasProjection && (
               <Line
@@ -113,6 +114,7 @@ export const CashFlowChart = () => {
                 strokeDasharray="5 4"
                 dot={false}
                 connectNulls
+                isAnimationActive={false}
               />
             )}
           </ComposedChart>
