@@ -31,6 +31,9 @@ export const formatMiles = (miles: number): string =>
 // ── Enums ──
 export type TransactionSource = "santander" | "bradesco" | "nubank" | "unknown";
 
+/** Who made the transaction — detected automatically by card type */
+export type SpouseProfile = "marido" | "esposa" | "familia";
+
 export type TransactionCategory =
   | "supermercado"
   | "ajuda_mae"
@@ -56,6 +59,12 @@ export const CATEGORY_LABELS: Record<TransactionCategory, string> = {
   outros: "Outros",
 };
 
+export const SPOUSE_LABELS: Record<SpouseProfile, string> = {
+  marido: "Marido",
+  esposa: "Esposa",
+  familia: "Família",
+};
+
 export const SOURCE_LABELS: Record<TransactionSource, string> = {
   santander: "Santander",
   bradesco: "Bradesco",
@@ -76,6 +85,8 @@ export interface Transaction {
   readonly isInternational: boolean;
   readonly iofAmount: BRLAmount; // IOF charged (4.38% for international)
   readonly establishment: string;
+  readonly spouseProfile: SpouseProfile; // "marido" | "esposa" | "familia"
+  readonly isAdditionalCard: boolean;   // true = cartão adicional (Esposa)
 }
 
 export interface FinancialConfig {

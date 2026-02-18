@@ -1,4 +1,4 @@
-import { Store } from "lucide-react";
+import { Store, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { useFinance } from "@/contexts/DataContext";
 import { ListSkeleton } from "./Skeletons";
@@ -12,21 +12,34 @@ const DEMO = [
 ];
 
 export const TopEstablishments = () => {
-  const { finance, isLoading } = useFinance();
+  const { finance, isLoading, profileFilter } = useFinance();
   if (isLoading) return <ListSkeleton />;
 
   const live = finance.topEstablishments;
   const establishments = live.length > 0 ? live : DEMO;
   const maxAmount = establishments[0]?.amount || 1;
 
+  const profileLabel: Record<string, string> = {
+    todos: "Família",
+    marido: "Marido",
+    esposa: "Esposa",
+    familia: "Família",
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card rounded-2xl p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Store className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Top 5 Estabelecimentos
-          {live.length === 0 && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
-        </h3>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Store className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Top 5 Estabelecimentos
+            {live.length === 0 && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5">
+          <User className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground">{profileLabel[profileFilter] ?? "Família"}</span>
+        </div>
       </div>
       <div className="space-y-3">
         {establishments.map((est, i) => (
