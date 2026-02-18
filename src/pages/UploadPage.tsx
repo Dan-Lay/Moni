@@ -1,16 +1,17 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Upload as UploadIcon, FileText, FileSpreadsheet, CheckCircle, AlertCircle, Plane } from "lucide-react";
+import { Upload as UploadIcon, FileText, FileSpreadsheet, CheckCircle, AlertCircle, Plane, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useRef, useState } from "react";
 import { parseOFX, parseCSV } from "@/lib/parsers";
 import { useFinance } from "@/contexts/DataContext";
 import { Transaction, formatMiles } from "@/lib/types";
+import { tryReconcile, updatePlannedEntry } from "@/lib/storage";
 
 const UploadPage = () => {
-  const { addTransactions, data } = useFinance();
+  const { addTransactions, data, reload } = useFinance();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<{ count: number; miles: number; source: string; spouseCount: number } | null>(null);
+  const [result, setResult] = useState<{ count: number; miles: number; source: string; spouseCount: number; reconciled: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceHint, setSourceHint] = useState("santander");
 
@@ -26,16 +27,31 @@ const UploadPage = () => {
       else if (ext === "csv" || ext === "txt") txs = parseCSV(text, sourceHint, cotacaoDolar);
       else { setError(`Formato .${ext} não suportado. Use OFX ou CSV.`); return; }
       if (txs.length === 0) { setError("Nenhuma transação encontrada no arquivo."); return; }
+
+      // Reconciliation: match imported txs against planned entries
+      const planned = data.plannedEntries ?? [];
+      let reconciledCount = 0;
+      for (const tx of txs) {
+        const matchId = tryReconcile(tx, planned);
+        if (matchId) {
+          updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(tx.amount) as any });
+          reconciledCount++;
+        }
+      }
+
       addTransactions(txs);
+      if (reconciledCount > 0) reload();
+
       const spouseTxs = txs.filter((t) => t.isAdditionalCard).length;
       setResult({
         count: txs.length,
         miles: txs.reduce((a, t) => a + t.milesGenerated, 0),
         source: file.name,
         spouseCount: spouseTxs,
+        reconciled: reconciledCount,
       });
     } catch { setError("Erro ao processar arquivo."); }
-  }, [addTransactions, sourceHint, data.config.cotacaoDolar]);
+  }, [addTransactions, sourceHint, data.config.cotacaoDolar, data.plannedEntries, reload]);
 
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }, [processFile]);
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) processFile(f); }, [processFile]);
@@ -70,7 +86,7 @@ const UploadPage = () => {
               <div className="flex-1">
                 <p className="text-sm font-semibold text-primary">Upload processado!</p>
                 <p className="mt-1 text-xs text-muted-foreground">{result.source}</p>
-                <div className="mt-3 grid grid-cols-3 gap-3">
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="rounded-lg bg-secondary/50 px-3 py-2">
                     <p className="font-mono text-lg font-bold">{result.count}</p>
                     <p className="text-[10px] text-muted-foreground">transações</p>
@@ -83,9 +99,18 @@ const UploadPage = () => {
                     <p className="font-mono text-lg font-bold">{result.spouseCount}</p>
                     <p className="text-[10px] text-muted-foreground">Esposa 💜</p>
                   </div>
+                  <div className="rounded-lg bg-primary/10 px-3 py-2">
+                    <div className="flex items-center gap-1"><Link2 className="h-3 w-3 text-primary" /><p className="font-mono text-lg font-bold text-primary">{result.reconciled}</p></div>
+                    <p className="text-[10px] text-muted-foreground">conciliados</p>
+                  </div>
                 </div>
+                {result.reconciled > 0 && (
+                  <p className="mt-2 text-[11px] text-primary">
+                    ✓ {result.reconciled} lançamento(s) previsto(s) conciliado(s) automaticamente com valor real.
+                  </p>
+                )}
                 {result.spouseCount > 0 && (
-                  <p className="mt-2 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     ✓ {result.spouseCount} transação(ões) detectada(s) como cartão adicional (Esposa)
                   </p>
                 )}
