@@ -1,24 +1,21 @@
-import { Zap, AlertCircle } from "lucide-react";
+import { Zap, AlertCircle, Globe } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAppData } from "@/contexts/DataContext";
-import { efficiencyStats, getCurrentMonthTransactions } from "@/lib/storage";
+import { useFinance } from "@/contexts/DataContext";
+import { CardSkeleton } from "./Skeletons";
+import { formatBRL, formatMiles } from "@/lib/types";
 
 export const EfficiencyIndex = () => {
-  const { data } = useAppData();
-  const monthTxs = getCurrentMonthTransactions(data.transactions);
-  const stats = efficiencyStats(monthTxs);
+  const { finance, data, isLoading } = useFinance();
+  if (isLoading) return <CardSkeleton hasBar lines={3} />;
 
+  const stats = finance.efficiency;
   const hasData = stats.totalSpent > 0;
-  const eficiencia = hasData ? stats.efficiency : 82; // demo fallback
+  const eficiencia = hasData ? stats.efficiency : 82;
   const milhasPerdidas = hasData ? stats.lostMiles : 680;
+  const iofRate = data.config.iofInternacional;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="glass-card rounded-2xl p-5"
-    >
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-5">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-accent" />
@@ -52,8 +49,32 @@ export const EfficiencyIndex = () => {
         <div className="mt-3 flex items-start gap-2 rounded-lg bg-accent/10 px-3 py-2">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-accent" />
           <p className="text-xs text-accent">
-            Você deixou de ganhar <strong className="font-mono">{milhasPerdidas.toLocaleString()}</strong> milhas usando o cartão errado.
+            Você deixou de ganhar <strong className="font-mono">{formatMiles(milhasPerdidas)}</strong> milhas usando o cartão errado.
           </p>
+        </div>
+      )}
+
+      {/* IOF Internacional breakdown */}
+      {(hasData && stats.internationalSpent > 0) && (
+        <div className="mt-3 rounded-lg bg-info/10 px-3 py-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Globe className="h-3.5 w-3.5 text-info" />
+            <span className="text-xs font-semibold text-info">Gastos Internacionais</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[10px]">
+            <div>
+              <p className="text-muted-foreground">Valor</p>
+              <p className="font-mono font-semibold">{formatBRL(stats.internationalSpent)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">IOF ({iofRate}%)</p>
+              <p className="font-mono font-semibold text-destructive">{formatBRL(stats.totalIOF)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Milhas (c/ IOF)</p>
+              <p className="font-mono font-semibold text-primary">{formatMiles(stats.milesAfterIOF)}</p>
+            </div>
+          </div>
         </div>
       )}
     </motion.div>

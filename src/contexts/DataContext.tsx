@@ -1,16 +1,34 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
-import { AppData, Transaction, FinancialConfig, DesapegoItem } from "@/lib/types";
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import {
-  loadAppData,
-  saveAppData,
-  addTransactions as addTxs,
-  updateConfig as updCfg,
-  updateDesapego as updDesapego,
-  updateJantares as updJantares,
+  AppData, Transaction, FinancialConfig, DesapegoItem,
+  EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
+} from "@/lib/types";
+import {
+  loadAppData, addTransactions as addTxs, updateConfig as updCfg,
+  updateDesapego as updDesapego, updateJantares as updJantares,
+  getCurrentMonthTransactions, efficiencyStats, getMonthSummary,
+  buildCashFlowProjection, topEstablishments, totalMilesFromTransactions,
+  sumByCategory,
 } from "@/lib/storage";
 
-interface DataContextType {
+// ── Computed finance state ──
+interface FinanceState {
+  readonly salarioLiquido: number;
+  readonly milhasAtuais: number;
+  readonly metaDisney: number;
+  readonly monthTransactions: Transaction[];
+  readonly efficiency: EfficiencyStats;
+  readonly monthSummary: MonthSummary;
+  readonly cashFlow: CashFlowPoint[];
+  readonly topEstablishments: EstablishmentRank[];
+  readonly totalMilesEarned: number;
+  readonly categoryBreakdown: Record<string, number>;
+}
+
+interface FinanceContextType {
   data: AppData;
+  finance: FinanceState;
+  isLoading: boolean;
   addTransactions: (txs: Transaction[]) => void;
   updateConfig: (partial: Partial<FinancialConfig>) => void;
   updateDesapego: (items: DesapegoItem[]) => void;
@@ -18,18 +36,43 @@ interface DataContextType {
   reload: () => void;
 }
 
-const DataContext = createContext<DataContextType | null>(null);
+const FinanceContext = createContext<FinanceContextType | null>(null);
 
-export const useAppData = () => {
-  const ctx = useContext(DataContext);
-  if (!ctx) throw new Error("useAppData must be used within DataProvider");
+export const useFinance = () => {
+  const ctx = useContext(FinanceContext);
+  if (!ctx) throw new Error("useFinance must be used within FinanceProvider");
   return ctx;
 };
 
-export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [data, setData] = useState<AppData>(loadAppData);
+// Keep backward compat
+export const useAppData = useFinance;
 
-  const reload = useCallback(() => setData(loadAppData()), []);
+function computeFinance(data: AppData): FinanceState {
+  const monthTxs = getCurrentMonthTransactions(data.transactions);
+  return {
+    salarioLiquido: data.config.salarioLiquido,
+    milhasAtuais: data.config.milhasAtuais,
+    metaDisney: data.config.metaDisney,
+    monthTransactions: monthTxs,
+    efficiency: efficiencyStats(monthTxs),
+    monthSummary: getMonthSummary(data.transactions, data.config),
+    cashFlow: buildCashFlowProjection(data.transactions, data.config),
+    topEstablishments: topEstablishments(monthTxs, 5),
+    totalMilesEarned: totalMilesFromTransactions(data.transactions),
+    categoryBreakdown: sumByCategory(monthTxs),
+  };
+}
+
+export const FinanceProvider = ({ children }: { children: ReactNode }) => {
+  const [data, setData] = useState<AppData>(loadAppData);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simulate initial load (for skeleton UX)
+  useState(() => {
+    setTimeout(() => setIsLoading(false), 800);
+  });
+
+  const finance = computeFinance(data);
 
   const addTransactions = useCallback((txs: Transaction[]) => {
     const updated = addTxs(txs);
@@ -51,9 +94,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setData({ ...updated });
   }, []);
 
+  const reload = useCallback(() => {
+    setIsLoading(true);
+    setData(loadAppData());
+    setTimeout(() => setIsLoading(false), 400);
+  }, []);
+
   return (
-    <DataContext.Provider value={{ data, addTransactions, updateConfig, updateDesapego, updateJantares, reload }}>
+    <FinanceContext.Provider value={{ data, finance, isLoading, addTransactions, updateConfig, updateDesapego, updateJantares, reload }}>
       {children}
-    </DataContext.Provider>
+    </FinanceContext.Provider>
   );
 };
+
+// Re-export as DataProvider for backward compat
+export const DataProvider = FinanceProvider;
