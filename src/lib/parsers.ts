@@ -2,7 +2,7 @@ import { buildTransaction } from "./categorizer";
 import { Transaction } from "./types";
 
 // ── OFX Parser (browser-side) ──
-export function parseOFX(content: string, fileSourceHint?: string): Transaction[] {
+export function parseOFX(content: string, fileSourceHint?: string, cotacaoDolar = 5.0): Transaction[] {
   const transactions: Transaction[] = [];
 
   // Extract STMTTRN blocks
@@ -27,7 +27,7 @@ export function parseOFX(content: string, fileSourceHint?: string): Transaction[
       const orgMatch = content.match(/<ORG>(.+?)(?:\r?\n|<)/i);
       const hint = fileSourceHint || orgMatch?.[1] || "";
 
-      transactions.push(buildTransaction(date, description, amount, hint));
+      transactions.push(buildTransaction(date, description, amount, hint, cotacaoDolar));
     }
   }
 
@@ -35,7 +35,7 @@ export function parseOFX(content: string, fileSourceHint?: string): Transaction[
 }
 
 // ── CSV Parser ──
-export function parseCSV(content: string, fileSourceHint?: string): Transaction[] {
+export function parseCSV(content: string, fileSourceHint?: string, cotacaoDolar = 5.0): Transaction[] {
   const transactions: Transaction[] = [];
   const lines = content.split(/\r?\n/).filter((l) => l.trim());
 
@@ -62,7 +62,7 @@ export function parseCSV(content: string, fileSourceHint?: string): Transaction[
       const amount = parseAmount(parts[2]);
 
       if (date && !isNaN(amount)) {
-        transactions.push(buildTransaction(date, description, amount, fileSourceHint));
+        transactions.push(buildTransaction(date, description, amount, fileSourceHint, cotacaoDolar));
       }
     }
     return transactions;
@@ -77,7 +77,7 @@ export function parseCSV(content: string, fileSourceHint?: string): Transaction[
     const amount = parseAmount(parts[amountIdx]);
 
     if (date && !isNaN(amount)) {
-      transactions.push(buildTransaction(date, description, amount, fileSourceHint));
+      transactions.push(buildTransaction(date, description, amount, fileSourceHint, cotacaoDolar));
     }
   }
 

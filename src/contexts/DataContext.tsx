@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from "rea
 import {
   AppData, Transaction, FinancialConfig, DesapegoItem,
   EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
+  SpouseProfile,
 } from "@/lib/types";
 import {
   loadAppData, addTransactions as addTxs, updateConfig as updCfg,
@@ -25,10 +26,14 @@ interface FinanceState {
   readonly categoryBreakdown: Record<string, number>;
 }
 
+export type ProfileFilter = SpouseProfile | "todos";
+
 interface FinanceContextType {
   data: AppData;
   finance: FinanceState;
   isLoading: boolean;
+  profileFilter: ProfileFilter;
+  setProfileFilter: (p: ProfileFilter) => void;
   addTransactions: (txs: Transaction[]) => void;
   updateConfig: (partial: Partial<FinancialConfig>) => void;
   updateDesapego: (items: DesapegoItem[]) => void;
@@ -47,7 +52,7 @@ export const useFinance = () => {
 // Keep backward compat
 export const useAppData = useFinance;
 
-function computeFinance(data: AppData): FinanceState {
+function computeFinance(data: AppData, profile: ProfileFilter): FinanceState {
   const monthTxs = getCurrentMonthTransactions(data.transactions);
   return {
     salarioLiquido: data.config.salarioLiquido,
@@ -57,22 +62,23 @@ function computeFinance(data: AppData): FinanceState {
     efficiency: efficiencyStats(monthTxs),
     monthSummary: getMonthSummary(data.transactions, data.config),
     cashFlow: buildCashFlowProjection(data.transactions, data.config),
-    topEstablishments: topEstablishments(monthTxs, 5),
+    topEstablishments: topEstablishments(monthTxs, 5, profile),
     totalMilesEarned: totalMilesFromTransactions(data.transactions),
-    categoryBreakdown: sumByCategory(monthTxs),
+    categoryBreakdown: sumByCategory(monthTxs, profile),
   };
 }
 
 export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<AppData>(loadAppData);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileFilter, setProfileFilter] = useState<ProfileFilter>("todos");
 
   // Simulate initial load (for skeleton UX)
   useState(() => {
     setTimeout(() => setIsLoading(false), 800);
   });
 
-  const finance = computeFinance(data);
+  const finance = computeFinance(data, profileFilter);
 
   const addTransactions = useCallback((txs: Transaction[]) => {
     const updated = addTxs(txs);
@@ -101,7 +107,13 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <FinanceContext.Provider value={{ data, finance, isLoading, addTransactions, updateConfig, updateDesapego, updateJantares, reload }}>
+    <FinanceContext.Provider
+      value={{
+        data, finance, isLoading,
+        profileFilter, setProfileFilter,
+        addTransactions, updateConfig, updateDesapego, updateJantares, reload,
+      }}
+    >
       {children}
     </FinanceContext.Provider>
   );

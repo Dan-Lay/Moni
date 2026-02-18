@@ -7,10 +7,10 @@ import { useFinance } from "@/contexts/DataContext";
 import { Transaction, formatMiles } from "@/lib/types";
 
 const UploadPage = () => {
-  const { addTransactions } = useFinance();
+  const { addTransactions, data } = useFinance();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<{ count: number; miles: number; source: string } | null>(null);
+  const [result, setResult] = useState<{ count: number; miles: number; source: string; spouseCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceHint, setSourceHint] = useState("santander");
 
@@ -19,16 +19,23 @@ const UploadPage = () => {
     setResult(null);
     const text = await file.text();
     const ext = file.name.split(".").pop()?.toLowerCase();
+    const cotacaoDolar = data.config.cotacaoDolar;
     let txs: Transaction[] = [];
     try {
-      if (ext === "ofx" || ext === "qfx") txs = parseOFX(text, sourceHint);
-      else if (ext === "csv" || ext === "txt") txs = parseCSV(text, sourceHint);
+      if (ext === "ofx" || ext === "qfx") txs = parseOFX(text, sourceHint, cotacaoDolar);
+      else if (ext === "csv" || ext === "txt") txs = parseCSV(text, sourceHint, cotacaoDolar);
       else { setError(`Formato .${ext} não suportado. Use OFX ou CSV.`); return; }
       if (txs.length === 0) { setError("Nenhuma transação encontrada no arquivo."); return; }
       addTransactions(txs);
-      setResult({ count: txs.length, miles: txs.reduce((a, t) => a + t.milesGenerated, 0), source: file.name });
+      const spouseTxs = txs.filter((t) => t.isAdditionalCard).length;
+      setResult({
+        count: txs.length,
+        miles: txs.reduce((a, t) => a + t.milesGenerated, 0),
+        source: file.name,
+        spouseCount: spouseTxs,
+      });
     } catch { setError("Erro ao processar arquivo."); }
-  }, [addTransactions, sourceHint]);
+  }, [addTransactions, sourceHint, data.config.cotacaoDolar]);
 
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }, [processFile]);
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) processFile(f); }, [processFile]);
@@ -60,10 +67,10 @@ const UploadPage = () => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4 glass-card rounded-2xl p-5">
             <div className="flex items-start gap-3">
               <CheckCircle className="mt-0.5 h-5 w-5 text-primary flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-semibold text-primary">Upload processado!</p>
                 <p className="mt-1 text-xs text-muted-foreground">{result.source}</p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="mt-3 grid grid-cols-3 gap-3">
                   <div className="rounded-lg bg-secondary/50 px-3 py-2">
                     <p className="font-mono text-lg font-bold">{result.count}</p>
                     <p className="text-[10px] text-muted-foreground">transações</p>
@@ -72,7 +79,16 @@ const UploadPage = () => {
                     <div className="flex items-center gap-1"><Plane className="h-3 w-3 text-accent" /><p className="font-mono text-lg font-bold text-accent">{formatMiles(result.miles)}</p></div>
                     <p className="text-[10px] text-muted-foreground">milhas AA</p>
                   </div>
+                  <div className="rounded-lg bg-secondary/50 px-3 py-2">
+                    <p className="font-mono text-lg font-bold">{result.spouseCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Esposa 💜</p>
+                  </div>
                 </div>
+                {result.spouseCount > 0 && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    ✓ {result.spouseCount} transação(ões) detectada(s) como cartão adicional (Esposa)
+                  </p>
+                )}
               </div>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 import {
   AppData, FinancialConfig, DesapegoItem, Transaction,
   EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
+  SpouseProfile,
   toISODate, toBRL, toMiles, toPercent,
 } from "./types";
 
@@ -121,9 +122,13 @@ export function getCurrentMonthTransactions(txs: readonly Transaction[]): Transa
   });
 }
 
-export function sumByCategory(txs: readonly Transaction[]): Record<string, number> {
+export function sumByCategory(
+  txs: readonly Transaction[],
+  profile: SpouseProfile | "todos" = "todos"
+): Record<string, number> {
+  const filtered = profile === "todos" ? txs : txs.filter((t) => t.spouseProfile === profile || t.spouseProfile === "familia");
   const result: Record<string, number> = {};
-  for (const t of txs) {
+  for (const t of filtered) {
     if (t.amount < 0) {
       result[t.category] = (result[t.category] || 0) + Math.abs(t.amount);
     }
@@ -135,9 +140,14 @@ export function totalMilesFromTransactions(txs: readonly Transaction[]): number 
   return txs.reduce((acc, t) => acc + t.milesGenerated, 0);
 }
 
-export function topEstablishments(txs: readonly Transaction[], limit = 5): EstablishmentRank[] {
+export function topEstablishments(
+  txs: readonly Transaction[],
+  limit = 5,
+  profile: SpouseProfile | "todos" = "todos"
+): EstablishmentRank[] {
+  const filtered = profile === "todos" ? txs : txs.filter((t) => t.spouseProfile === profile || t.spouseProfile === "familia");
   const map: Record<string, { amount: number; count: number }> = {};
-  for (const t of txs) {
+  for (const t of filtered) {
     if (t.amount < 0 && t.establishment) {
       if (!map[t.establishment]) map[t.establishment] = { amount: 0, count: 0 };
       map[t.establishment].amount += Math.abs(t.amount);
