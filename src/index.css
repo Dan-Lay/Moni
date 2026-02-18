@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Fonts: Inter and JetBrains Mono are loaded via system fallback for offline use.
+   To use Google Fonts online, uncomment the line below:
+   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+*/
 
 @layer base {
   :root {
