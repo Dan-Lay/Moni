@@ -35,14 +35,15 @@ const Transactions = () => {
   const [authorFilter, setAuthorFilter] = useState<SpouseProfile | "all">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCat, setEditCat] = useState<TransactionCategory>("outros");
-  const [editAmount, setEditAmount] = useState<string>("");
+  const [editAmount, setEditAmount] = useState("");
   const [editAuthor, setEditAuthor] = useState<SpouseProfile>("marido");
+  const [editDesc, setEditDesc] = useState("");
 
   const priceAlerts = useMemo(() => getPriceAlerts(data.transactions), [data.transactions]);
 
   const filtered = useMemo(() => {
     return allTxs.filter((t) => {
-      if (t.amount > 0) return false; // only debits
+      if (t.amount > 0) return false;
       const matchSearch = search === "" ||
         t.description.toLowerCase().includes(search.toLowerCase()) ||
         t.establishment.toLowerCase().includes(search.toLowerCase());
@@ -61,6 +62,7 @@ const Transactions = () => {
     setEditCat(tx.category);
     setEditAmount(Math.abs(tx.amount).toFixed(2));
     setEditAuthor(tx.spouseProfile);
+    setEditDesc(tx.description);
   }
 
   function confirmEdit() {
@@ -70,6 +72,7 @@ const Transactions = () => {
       category: editCat,
       amount: isNaN(parsed) ? undefined : -Math.abs(parsed) as any,
       spouseProfile: editAuthor,
+      description: editDesc || undefined,
     });
     setEditingId(null);
     reload();
@@ -82,7 +85,10 @@ const Transactions = () => {
   return (
     <AppLayout>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Transações</h1>
+        <div>
+          <h1 className="text-xl font-bold">Extrato</h1>
+          <p className="text-[11px] text-muted-foreground">Dados reais por trás dos gráficos</p>
+        </div>
         <span className="text-xs text-muted-foreground">
           {filtered.length} lançamento{filtered.length !== 1 ? "s" : ""} ·{" "}
           <span className="font-mono text-destructive">
@@ -151,58 +157,57 @@ const Transactions = () => {
                   )}
                 >
                   {isEditing ? (
-                    /* ── Edit mode ── */
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate mb-2">{t.establishment || t.description}</p>
-                        <div className="flex flex-wrap gap-2">
-                          <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
-                            <SelectTrigger className="h-7 w-36 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
-                                <SelectItem key={v} value={v}>{l}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Select value={editAuthor} onValueChange={(v) => setEditAuthor(v as SpouseProfile)}>
-                            <SelectTrigger className="h-7 w-28 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="marido">Marido</SelectItem>
-                              <SelectItem value="esposa">Esposa</SelectItem>
-                              <SelectItem value="familia">Família</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                            <Input
-                              className="h-7 w-28 pl-7 text-xs font-mono"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                            />
-                          </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          className="h-7 text-xs font-medium flex-1"
+                          placeholder="Nome / Descrição"
+                        />
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            onClick={confirmEdit}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-1 ml-auto">
-                        <button
-                          onClick={confirmEdit}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
+                          <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                              <SelectItem key={v} value={v}>{l}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={editAuthor} onValueChange={(v) => setEditAuthor(v as SpouseProfile)}>
+                          <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="marido">Marido</SelectItem>
+                            <SelectItem value="esposa">Esposa</SelectItem>
+                            <SelectItem value="familia">Família</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                          <Input
+                            className="h-7 w-28 pl-7 text-xs font-mono"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    /* ── View mode ── */
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">

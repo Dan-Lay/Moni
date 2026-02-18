@@ -185,7 +185,7 @@ export function tryReconcile(tx: Transaction, entries: readonly PlannedEntry[]):
 }
 
 /** Edits a transaction in-place by id */
-export function editTransaction(id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile">>): AppData {
+export function editTransaction(id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description">>): AppData {
   const data = loadAppData();
   const updated: AppData = {
     ...data,
