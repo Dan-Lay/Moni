@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    target: "es2020",
+    minify: "esbuild",
+    cssMinify: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -29,5 +33,9 @@ export default defineConfig(({ mode }) => ({
       },
     },
     chunkSizeWarningLimit: 600,
+  },
+  esbuild: {
+    drop: ["debugger"],
+    legalComments: "none",
   },
 }));
