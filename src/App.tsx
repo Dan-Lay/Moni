@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { DataProvider } from "./contexts/DataContext";
 import Index from "./pages/Index";
 import Expenses from "./pages/Expenses";
 import UploadPage from "./pages/UploadPage";
@@ -16,20 +17,22 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/desapego" element={<Desapego />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <DataProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/desapego" element={<Desapego />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </DataProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

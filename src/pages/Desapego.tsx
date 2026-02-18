@@ -1,29 +1,32 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Package, Check, DollarSign } from "lucide-react";
+import { Package, Check, DollarSign, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
-
-interface Item {
-  id: number;
-  name: string;
-  value: number;
-  sold: boolean;
-}
-
-const initialItems: Item[] = [
-  { id: 1, name: "Carrinho de bebê Chicco", value: 450, sold: false },
-  { id: 2, name: "Monitor Samsung 24\"", value: 600, sold: true },
-  { id: 3, name: "Cadeirinha carro", value: 350, sold: false },
-  { id: 4, name: "Bicicleta ergométrica", value: 800, sold: true },
-  { id: 5, name: "iPhone 12 (usado)", value: 1200, sold: false },
-];
+import { useAppData } from "@/contexts/DataContext";
 
 const Desapego = () => {
-  const [items, setItems] = useState(initialItems);
+  const { data, updateDesapego } = useAppData();
+  const items = data.desapegoItems;
   const totalVendido = items.filter((i) => i.sold).reduce((acc, i) => acc + i.value, 0);
 
+  const [newName, setNewName] = useState("");
+  const [newValue, setNewValue] = useState("");
+
   const toggleSold = (id: number) => {
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, sold: !item.sold } : item)));
+    updateDesapego(items.map((item) => (item.id === id ? { ...item, sold: !item.sold } : item)));
+  };
+
+  const addItem = () => {
+    if (!newName.trim() || !newValue.trim()) return;
+    const newItem = {
+      id: Date.now(),
+      name: newName.trim(),
+      value: parseFloat(newValue) || 0,
+      sold: false,
+    };
+    updateDesapego([...items, newItem]);
+    setNewName("");
+    setNewValue("");
   };
 
   return (
@@ -43,13 +46,36 @@ const Desapego = () => {
         </div>
       </div>
 
+      {/* Add new item */}
+      <div className="mb-4 glass-card rounded-xl p-4 flex gap-2 flex-wrap">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nome do item"
+          className="flex-1 min-w-[140px] rounded-lg bg-secondary px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+        />
+        <input
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          placeholder="Valor (R$)"
+          type="number"
+          className="w-28 rounded-lg bg-secondary px-3 py-2 text-sm font-mono outline-none placeholder:text-muted-foreground"
+        />
+        <button
+          onClick={addItem}
+          className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-all"
+        >
+          <Plus className="h-4 w-4" /> Adicionar
+        </button>
+      </div>
+
       <div className="space-y-3">
         {items.map((item, i) => (
           <motion.div
             key={item.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.05 }}
+            transition={{ delay: i * 0.03 }}
             className={`glass-card flex items-center justify-between rounded-xl p-4 transition-all ${
               item.sold ? "opacity-60" : ""
             }`}
@@ -74,9 +100,7 @@ const Desapego = () => {
               }`}
             >
               {item.sold ? (
-                <>
-                  <Check className="h-3 w-3" /> Vendido
-                </>
+                <><Check className="h-3 w-3" /> Vendido</>
               ) : (
                 "Disponível"
               )}

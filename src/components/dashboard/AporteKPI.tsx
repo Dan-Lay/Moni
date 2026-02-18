@@ -1,12 +1,24 @@
 import { TrendingUp, Target } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAppData } from "@/contexts/DataContext";
 
 export const AporteKPI = () => {
-  const salario = 12000;
-  const meta = salario * 0.15; // 1800
-  const investido = 1450;
-  const percent = (investido / meta) * 100;
-  const falta = meta - investido;
+  const { data } = useAppData();
+  const { salario, aportePercentual } = data.config;
+  const meta = salario * (aportePercentual / 100);
+
+  // Count "investimentos" category + desapego sold items
+  const investido = data.transactions
+    .filter((t) => t.category === "investimentos" && t.amount < 0)
+    .reduce((a, t) => a + Math.abs(t.amount), 0);
+
+  const desapegoVendido = data.desapegoItems
+    .filter((i) => i.sold)
+    .reduce((a, i) => a + i.value, 0);
+
+  const totalAporte = investido + desapegoVendido;
+  const percent = meta > 0 ? (totalAporte / meta) * 100 : 0;
+  const falta = meta - totalAporte;
 
   return (
     <motion.div
@@ -16,16 +28,16 @@ export const AporteKPI = () => {
       className="glass-card rounded-2xl p-5"
     >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Aporte Mensal (15%)</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Aporte Mensal ({aportePercentual}%)</h3>
         <Target className="h-4 w-4 text-primary" />
       </div>
 
       <div className="mb-1 flex items-baseline gap-2">
         <span className="font-mono text-3xl font-bold">
-          R$ {investido.toLocaleString("pt-BR")}
+          R$ {totalAporte.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
         </span>
         <span className="text-sm text-muted-foreground">
-          / R$ {meta.toLocaleString("pt-BR")}
+          / R$ {meta.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
         </span>
       </div>
 
@@ -43,7 +55,7 @@ export const AporteKPI = () => {
           {percent.toFixed(0)}% da meta
         </span>
         {falta > 0 ? (
-          <span className="text-warning font-mono">Faltam R$ {falta.toLocaleString("pt-BR")}</span>
+          <span className="text-warning font-mono">Faltam R$ {falta.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</span>
         ) : (
           <span className="flex items-center gap-1 text-primary">
             <TrendingUp className="h-3 w-3" /> Meta atingida!

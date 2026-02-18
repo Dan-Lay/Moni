@@ -1,13 +1,19 @@
 import { Plane, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAppData } from "@/contexts/DataContext";
+import { totalMilesFromTransactions, getCurrentMonthTransactions } from "@/lib/storage";
 
 export const DisneyThermometer = () => {
-  const milhasAtuais = 50000;
-  const milhasEstimadasFatura = 9700;
-  const metaTotal = 600000;
-  const totalAtual = milhasAtuais + milhasEstimadasFatura;
-  const percent = (totalAtual / metaTotal) * 100;
-  const restantes = metaTotal - totalAtual;
+  const { data } = useAppData();
+  const { milhasAcumuladas, metaMilhas } = data.config;
+
+  const monthTxs = getCurrentMonthTransactions(data.transactions);
+  const milhasFatura = totalMilesFromTransactions(monthTxs);
+  const milhasHistoricas = totalMilesFromTransactions(data.transactions) - milhasFatura;
+
+  const totalAtual = milhasAcumuladas + milhasHistoricas + milhasFatura;
+  const percent = (totalAtual / metaMilhas) * 100;
+  const restantes = metaMilhas - totalAtual;
 
   return (
     <motion.div
@@ -29,19 +35,17 @@ export const DisneyThermometer = () => {
           {totalAtual.toLocaleString("pt-BR")}
         </span>
         <span className="text-sm text-muted-foreground">
-          / {(metaTotal / 1000).toFixed(0)}k milhas
+          / {(metaMilhas / 1000).toFixed(0)}k milhas
         </span>
       </div>
 
       <div className="mb-3 mt-4 h-4 overflow-hidden rounded-full bg-secondary">
         <motion.div
           initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
+          animate={{ width: `${Math.min(percent, 100)}%` }}
           transition={{ duration: 1.5, ease: "easeOut" }}
           className="relative h-full rounded-full"
-          style={{
-            background: "linear-gradient(90deg, hsl(var(--accent)), hsl(43 80% 70%))",
-          }}
+          style={{ background: "linear-gradient(90deg, hsl(var(--accent)), hsl(43 80% 70%))" }}
         >
           <div className="absolute right-1 top-1/2 -translate-y-1/2">
             <Plane className="h-2.5 w-2.5 text-accent-foreground" />
@@ -51,17 +55,17 @@ export const DisneyThermometer = () => {
 
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>{percent.toFixed(1)}% concluído</span>
-        <span>{restantes.toLocaleString("pt-BR")} restantes</span>
+        <span>{Math.max(restantes, 0).toLocaleString("pt-BR")} restantes</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
-          <p className="font-mono text-sm font-semibold">{milhasAtuais.toLocaleString("pt-BR")}</p>
-          <p className="text-[10px] text-muted-foreground">Acumuladas</p>
+          <p className="font-mono text-sm font-semibold">{milhasAcumuladas.toLocaleString("pt-BR")}</p>
+          <p className="text-[10px] text-muted-foreground">Iniciais</p>
         </div>
         <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
-          <p className="font-mono text-sm font-semibold text-primary">+{milhasEstimadasFatura.toLocaleString("pt-BR")}</p>
-          <p className="text-[10px] text-muted-foreground">Estimada fatura</p>
+          <p className="font-mono text-sm font-semibold text-primary">+{milhasFatura.toLocaleString("pt-BR")}</p>
+          <p className="text-[10px] text-muted-foreground">Fatura atual</p>
         </div>
       </div>
     </motion.div>
