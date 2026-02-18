@@ -348,6 +348,33 @@ export interface CashFlowPointExtended extends CashFlowPoint {
   readonly projecao?: number; // future planned entries (dotted)
 }
 
+/**
+ * Expands a planned entry into future occurrences based on its recurrence type.
+ * Returns up to `months` months of projected entries from the entry's dueDate.
+ */
+export function expandRecurrence(entry: PlannedEntry, months = 12): PlannedEntry[] {
+  if (entry.recurrence === "unico") return [entry];
+  const projections: PlannedEntry[] = [];
+  const start = new Date(entry.dueDate);
+
+  for (let i = 0; i < months; i++) {
+    const d = new Date(start);
+    switch (entry.recurrence) {
+      case "mensal":   d.setMonth(d.getMonth() + i); break;
+      case "quinzenal": d.setDate(d.getDate() + i * 15); break;
+      case "diario":   d.setDate(d.getDate() + i); break;
+      case "anual":    d.setFullYear(d.getFullYear() + i); break;
+    }
+    projections.push({
+      ...entry,
+      id: `${entry.id}_proj_${i}`,
+      dueDate: toISODate(d.toISOString().split("T")[0]),
+      conciliado: i === 0 ? entry.conciliado : false,
+    });
+  }
+  return projections;
+}
+
 export function buildCashFlowProjection(
   txs: readonly Transaction[],
   config: FinancialConfig,
@@ -360,6 +387,9 @@ export function buildCashFlowProjection(
   const month = today.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+  // Expand all planned entries with recurrence into projected occurrences
+  const allProjected = planned.flatMap((e) => expandRecurrence(e, 12));
+
   // Accumulate real transactions
   const byDay: Record<string, number> = {};
   for (const t of monthTxs) {
@@ -367,9 +397,9 @@ export function buildCashFlowProjection(
     byDay[day] = (byDay[day] || 0) + t.amount;
   }
 
-  // Accumulate future planned entries (not conciliated)
+  // Accumulate future planned entries for current month (not conciliated)
   const futurePlanned: Record<string, number> = {};
-  for (const e of planned) {
+  for (const e of allProjected) {
     if (e.conciliado) continue;
     const d = new Date(e.dueDate);
     if (d.getFullYear() === year && d.getMonth() === month && d.getDate() > todayDay) {
