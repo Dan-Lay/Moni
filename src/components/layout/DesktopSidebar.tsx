@@ -1,5 +1,5 @@
 import { useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, PieChart, Upload, ShoppingBag, Settings, Plane, Swords, ListOrdered, CalendarClock } from "lucide-react";
+import { LayoutDashboard, PieChart, Upload, ShoppingBag, Settings, Sparkles, ListOrdered, CalendarClock, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -19,11 +19,11 @@ export const DesktopSidebar = () => {
     <aside className="fixed left-0 top-0 z-40 hidden h-full w-64 border-r border-border bg-card lg:flex lg:flex-col">
       <div className="flex items-center gap-3 border-b border-border px-6 py-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <Swords className="h-5 w-5 text-primary" />
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-bold tracking-tight">FinWar</h1>
-          <p className="text-xs text-muted-foreground">Gestão de Guerra</p>
+          <h1 className="text-lg font-bold tracking-tight">Moni</h1>
+          <p className="text-xs text-muted-foreground">Sua inteligência financeira</p>
         </div>
       </div>
 
@@ -49,11 +49,11 @@ export const DesktopSidebar = () => {
       </nav>
 
       <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-accent/10 px-3 py-3">
-          <Plane className="h-5 w-5 text-accent" />
+        <div className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-3">
+          <Target className="h-5 w-5 text-primary" />
           <div>
-            <p className="text-xs font-semibold text-accent">Disney 2028</p>
-            <p className="text-[10px] text-muted-foreground">A missão continua!</p>
+            <p className="text-xs font-semibold text-primary">Suas Metas</p>
+            <p className="text-[10px] text-muted-foreground">A Moni cuida de tudo 💜</p>
           </div>
         </div>
       </div>

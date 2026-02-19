@@ -1,5 +1,5 @@
 /**
- * Mock data for FinWar — realistic Brazilian financial data
+ * Mock data for Moni — realistic Brazilian financial data
  * Used when PocketBase is unreachable (e.g., HTTPS→HTTP PNA block)
  */
 import {

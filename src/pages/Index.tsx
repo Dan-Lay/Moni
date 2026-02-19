@@ -1,4 +1,4 @@
-import { Swords, Users, User } from "lucide-react";
+import { Sparkles, Users, User } from "lucide-react";
 import { SaldoCard } from "@/components/dashboard/SaldoCard";
 import { DisneyThermometer } from "@/components/dashboard/DisneyThermometer";
 import { AporteKPI } from "@/components/dashboard/AporteKPI";
@@ -26,11 +26,11 @@ const Index = () => {
       <header className="mb-6 flex items-center justify-between lg:hidden">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-            <Swords className="h-4 w-4 text-primary" />
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">FinWar</h1>
-            <p className="text-[11px] text-muted-foreground">Dashboard de Guerra</p>
+            <h1 className="text-lg font-bold tracking-tight">Moni</h1>
+            <p className="text-[11px] text-muted-foreground">Sua inteligência financeira</p>
           </div>
         </div>
 
@@ -57,8 +57,8 @@ const Index = () => {
       {/* Desktop profile toggle */}
       <div className="mb-4 hidden items-center justify-between lg:flex">
         <div className="flex items-center gap-2">
-          <Swords className="h-4 w-4 text-primary" />
-          <h1 className="text-lg font-bold tracking-tight">FinWar</h1>
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h1 className="text-lg font-bold tracking-tight">Moni</h1>
         </div>
         <div className="flex items-center gap-1 rounded-xl bg-secondary p-1">
           {PROFILE_OPTIONS.map((opt) => (
