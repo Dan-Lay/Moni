@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Swords, Mail, Lock, UserPlus } from "lucide-react";
+import { Sparkles, Mail, Lock, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,10 +26,10 @@ const LoginPage = () => {
     try {
       if (isRegister) {
         await register(email, password, name);
-        toast({ title: "Conta criada!", description: "Bem-vindo(a) ao FinWar." });
+        toast({ title: "Conta criada!", description: "A Moni está pronta para te ajudar!" });
       } else {
         await login(email, password);
-        toast({ title: "Acesso liberado!", description: "Bem-vindo(a) de volta." });
+        toast({ title: "Bem-vinda de volta! 💜", description: "A Moni preparou tudo para você." });
       }
       navigate("/", { replace: true });
     } catch (err: any) {
@@ -54,14 +54,14 @@ const LoginPage = () => {
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 glow-primary"
           >
-            <Swords className="h-10 w-10 text-primary" />
+            <Sparkles className="h-10 w-10 text-primary" />
           </motion.div>
           <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight">
-              Fin<span className="text-gradient-gold">War</span>
+              Mo<span className="text-gradient-gold">ni</span>
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Gestão de Guerra — Acesso Restrito
+              Sua inteligência financeira
             </p>
           </div>
         </div>
@@ -73,7 +73,7 @@ const LoginPage = () => {
           className="glass-card rounded-2xl p-6 space-y-5"
         >
           <div className="text-center">
-            <h2 className="text-lg font-semibold">{isRegister ? "Criar Conta" : "Entrar na Base"}</h2>
+            <h2 className="text-lg font-semibold">{isRegister ? "Criar Conta" : "Entrar"}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {isRegister ? "Preencha seus dados" : "Use suas credenciais"}
             </p>
@@ -133,44 +133,24 @@ const LoginPage = () => {
           </button>
 
           {isMockMode && (
-            <div className="rounded-lg bg-accent/50 border border-accent px-3 py-2 text-center">
-              <p className="text-xs font-semibold text-accent-foreground">🧪 Modo Demonstração</p>
-              <p className="text-[10px] text-muted-foreground">PocketBase indisponível — dados fictícios</p>
+            <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-3 text-center space-y-1">
+              <p className="text-xs font-semibold text-primary">✨ Modo Demonstração</p>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Oi! Eu sou a Moni. Por enquanto, seu banco de dados está offline, então preparei esse ambiente de demonstração para você explorar.
+              </p>
             </div>
           )}
 
           <p className="text-center text-[10px] text-muted-foreground">
-            Conectado a{" "}
+            Conectada a{" "}
             <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px]">
-              {isMockMode ? "Mock (Demo)" : "PocketBase"}
+              {isMockMode ? "Demonstração" : "PocketBase"}
             </code>
           </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 space-y-2"
-        >
-          <p className="text-xs font-semibold text-yellow-400">⚠️ Acesso à Rede Local (Tailscale)</p>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Se o login falhar com erro de rede, o navegador pode estar bloqueando o acesso ao servidor local. Para resolver:
-          </p>
-          <ol className="text-[11px] text-muted-foreground leading-relaxed list-decimal list-inside space-y-1">
-            <li>
-              Abra{" "}
-              <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] select-all">
-                chrome://flags/#block-insecure-private-network-requests
-              </code>
-            </li>
-            <li>Altere para <strong className="text-foreground">Disabled</strong></li>
-            <li>Reinicie o navegador</li>
-          </ol>
-        </motion.div>
-
         <p className="text-center text-[10px] text-muted-foreground/50">
-          Disney 2028 — A missão continua 🚀
+          Moni — Sua assistente financeira 💜
         </p>
       </motion.div>
     </div>
