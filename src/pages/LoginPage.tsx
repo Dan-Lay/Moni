@@ -140,6 +140,28 @@ const LoginPage = () => {
           </p>
         </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 space-y-2"
+        >
+          <p className="text-xs font-semibold text-yellow-400">⚠️ Acesso à Rede Local (Tailscale)</p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Se o login falhar com erro de rede, o navegador pode estar bloqueando o acesso ao servidor local. Para resolver:
+          </p>
+          <ol className="text-[11px] text-muted-foreground leading-relaxed list-decimal list-inside space-y-1">
+            <li>
+              Abra{" "}
+              <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] select-all">
+                chrome://flags/#block-insecure-private-network-requests
+              </code>
+            </li>
+            <li>Altere para <strong className="text-foreground">Disabled</strong></li>
+            <li>Reinicie o navegador</li>
+          </ol>
+        </motion.div>
+
         <p className="text-center text-[10px] text-muted-foreground/50">
           Disney 2028 — A missão continua 🚀
         </p>
