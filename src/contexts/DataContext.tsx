@@ -9,15 +9,8 @@ import {
   buildCashFlowProjection, CashFlowPointExtended, topEstablishments, totalMilesFromTransactions,
   sumByCategory,
 } from "@/lib/storage";
-import {
-  pb,
-  fetchAllTransactions, createTransactions, updateTransaction as updateTxRemote,
-  fetchConfig, updateConfigRemote, updateJantaresRemote,
-  fetchPlannedEntries, createPlannedEntry as createPERemote,
-  updatePlannedEntryRemote, deletePlannedEntryRemote,
-  fetchDesapegoItems, saveDesapegoItems,
-  mapTransaction, mapPlannedEntry, mapDesapegoItem, mapFinancialConfig,
-} from "@/lib/pocketbase";
+import * as realPB from "@/lib/pocketbase";
+import * as mockPB from "@/lib/mock-pocketbase";
 import { useAuth } from "./AuthContext";
 
 // ── Computed finance state ──
@@ -100,14 +93,17 @@ function computeFinance(data: AppData, profile: ProfileFilter): FinanceState {
 }
 
 export const FinanceProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isMockMode } = useAuth();
   const [data, setData] = useState<AppData>(getEmptyData);
   const [configId, setConfigId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileFilter, setProfileFilter] = useState<ProfileFilter>("todos");
 
-  // Load all data from PocketBase when user logs in
-  const loadFromPB = useCallback(async () => {
+  // Pick the right API module based on mock mode
+  const api = isMockMode ? mockPB : realPB;
+
+  // Load all data
+  const loadData = useCallback(async () => {
     if (!user) {
       setData(getEmptyData());
       setIsLoading(false);
@@ -116,13 +112,13 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       const [txs, cfgResult, entries, desapego] = await Promise.all([
-        fetchAllTransactions(user.id),
-        fetchConfig(user.id),
-        fetchPlannedEntries(user.id),
-        fetchDesapegoItems(user.id),
+        api.fetchAllTransactions(user.id),
+        api.fetchConfig(user.id),
+        api.fetchPlannedEntries(user.id),
+        api.fetchDesapegoItems(user.id),
       ]);
       setConfigId(cfgResult.id);
-      setProfileFilter(user.defaultProfile as ProfileFilter || "todos");
+      setProfileFilter((user as any).defaultProfile as ProfileFilter || "todos");
       setData({
         transactions: txs,
         config: cfgResult.config,
@@ -132,35 +128,35 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         updatedAt: toISODate(new Date().toISOString()),
       });
     } catch (err) {
-      console.error("Failed to load data from PocketBase:", err);
+      console.error("Failed to load data:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, api]);
 
   useEffect(() => {
-    loadFromPB();
-  }, [loadFromPB]);
+    loadData();
+  }, [loadData]);
 
-  // ── Realtime subscriptions ──
+  // ── Realtime subscriptions (only for real PB) ──
   useEffect(() => {
-    if (!user) return;
+    if (!user || isMockMode) return;
 
     const unsubFns: (() => void)[] = [];
+    const pb = realPB.pb;
 
-    // Transactions realtime
     pb.collection("transactions").subscribe("*", (e) => {
       setData((prev) => {
         const txs = [...prev.transactions];
         if (e.action === "create") {
-          const newTx = mapTransaction(e.record);
+          const newTx = realPB.mapTransaction(e.record);
           if (!txs.find((t) => t.id === newTx.id)) {
             txs.push(newTx);
             txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           }
         } else if (e.action === "update") {
           const idx = txs.findIndex((t) => t.id === e.record.id);
-          if (idx >= 0) txs[idx] = mapTransaction(e.record);
+          if (idx >= 0) txs[idx] = realPB.mapTransaction(e.record);
         } else if (e.action === "delete") {
           const idx = txs.findIndex((t) => t.id === e.record.id);
           if (idx >= 0) txs.splice(idx, 1);
@@ -169,16 +165,15 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       });
     }).then((unsub) => unsubFns.push(unsub));
 
-    // Planned entries realtime
     pb.collection("planned_entries").subscribe("*", (e) => {
       setData((prev) => {
         const entries = [...prev.plannedEntries];
         if (e.action === "create") {
-          const newE = mapPlannedEntry(e.record);
+          const newE = realPB.mapPlannedEntry(e.record);
           if (!entries.find((x) => x.id === newE.id)) entries.push(newE);
         } else if (e.action === "update") {
           const idx = entries.findIndex((x) => x.id === e.record.id);
-          if (idx >= 0) entries[idx] = mapPlannedEntry(e.record);
+          if (idx >= 0) entries[idx] = realPB.mapPlannedEntry(e.record);
         } else if (e.action === "delete") {
           const idx = entries.findIndex((x) => x.id === e.record.id);
           if (idx >= 0) entries.splice(idx, 1);
@@ -187,22 +182,19 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       });
     }).then((unsub) => unsubFns.push(unsub));
 
-    // Financial config realtime
     pb.collection("financial_config").subscribe("*", (e) => {
       if (e.action === "update") {
         setData((prev) => ({
           ...prev,
-          config: mapFinancialConfig(e.record),
+          config: realPB.mapFinancialConfig(e.record),
           jantaresUsados: e.record["jantares_usados"] ?? prev.jantaresUsados,
         }));
       }
     }).then((unsub) => unsubFns.push(unsub));
 
-    // Desapego items realtime
     pb.collection("desapego_items").subscribe("*", () => {
-      // Simple: reload all desapego items on any change
       if (user) {
-        fetchDesapegoItems(user.id).then((items) => {
+        realPB.fetchDesapegoItems(user.id).then((items) => {
           setData((prev) => ({ ...prev, desapegoItems: items }));
         });
       }
@@ -215,64 +207,64 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       pb.collection("financial_config").unsubscribe("*").catch(() => {});
       pb.collection("desapego_items").unsubscribe("*").catch(() => {});
     };
-  }, [user]);
+  }, [user, isMockMode]);
 
   const finance = computeFinance(data, profileFilter);
 
   const addTransactions = useCallback(async (txs: Transaction[]) => {
     if (!user) return;
-    const created = await createTransactions(txs, user.id);
+    const created = await api.createTransactions(txs, user.id);
     setData((prev) => ({
       ...prev,
       transactions: [...prev.transactions, ...created].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       ),
     }));
-  }, [user]);
+  }, [user, api]);
 
   const updateConfig = useCallback(async (partial: Partial<FinancialConfig>) => {
     if (!configId) return;
-    const updated = await updateConfigRemote(configId, partial);
+    const updated = await api.updateConfigRemote(configId, partial);
     setData((prev) => ({ ...prev, config: updated }));
-  }, [configId]);
+  }, [configId, api]);
 
   const updateDesapego = useCallback(async (items: DesapegoItem[]) => {
     if (!user) return;
-    await saveDesapegoItems(items, user.id);
+    await api.saveDesapegoItems(items, user.id);
     setData((prev) => ({ ...prev, desapegoItems: items }));
-  }, [user]);
+  }, [user, api]);
 
   const updateJantares = useCallback(async (count: number) => {
     if (!configId) return;
-    await updateJantaresRemote(configId, count);
+    await api.updateJantaresRemote(configId, count);
     setData((prev) => ({ ...prev, jantaresUsados: count }));
-  }, [configId]);
+  }, [configId, api]);
 
   const handleAddPlannedEntry = useCallback(async (entry: PlannedEntry) => {
     if (!user) return;
-    const created = await createPERemote(entry, user.id);
+    const created = await api.createPlannedEntry(entry, user.id);
     setData((prev) => ({ ...prev, plannedEntries: [...prev.plannedEntries, created] }));
-  }, [user]);
+  }, [user, api]);
 
   const handleUpdatePlannedEntry = useCallback(async (id: string, patch: Partial<PlannedEntry>) => {
-    const updated = await updatePlannedEntryRemote(id, patch);
+    const updated = await api.updatePlannedEntryRemote(id, patch);
     setData((prev) => ({
       ...prev,
       plannedEntries: prev.plannedEntries.map((e) => (e.id === id ? updated : e)),
     }));
-  }, []);
+  }, [api]);
 
   const handleDeletePlannedEntry = useCallback(async (id: string) => {
-    await deletePlannedEntryRemote(id);
+    await api.deletePlannedEntryRemote(id);
     setData((prev) => ({
       ...prev,
       plannedEntries: prev.plannedEntries.filter((e) => e.id !== id),
     }));
-  }, []);
+  }, [api]);
 
   const reload = useCallback(() => {
-    loadFromPB();
-  }, [loadFromPB]);
+    loadData();
+  }, [loadData]);
 
   return (
     <FinanceContext.Provider

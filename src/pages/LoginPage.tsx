@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
 const LoginPage = () => {
-  const { isAuthenticated, login, register } = useAuth();
+  const { isAuthenticated, login, register, isMockMode } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isRegister, setIsRegister] = useState(false);
@@ -132,10 +132,17 @@ const LoginPage = () => {
             {isRegister ? "Já tem conta? Entrar" : "Não tem conta? Criar"}
           </button>
 
+          {isMockMode && (
+            <div className="rounded-lg bg-accent/50 border border-accent px-3 py-2 text-center">
+              <p className="text-xs font-semibold text-accent-foreground">🧪 Modo Demonstração</p>
+              <p className="text-[10px] text-muted-foreground">PocketBase indisponível — dados fictícios</p>
+            </div>
+          )}
+
           <p className="text-center text-[10px] text-muted-foreground">
             Conectado a{" "}
             <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px]">
-              PocketBase
+              {isMockMode ? "Mock (Demo)" : "PocketBase"}
             </code>
           </p>
         </motion.div>
