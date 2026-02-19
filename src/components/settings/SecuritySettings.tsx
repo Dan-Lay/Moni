@@ -15,26 +15,15 @@ const FAKE_RECOVERY_CODES = [
 ];
 
 export const SecuritySettings = ({ onBack }: Props) => {
-  const { user, enableMfa, disableMfa } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { toast } = useToast();
-  const [secret, setSecret] = useState<string | null>(null);
   const [showRecovery, setShowRecovery] = useState(false);
 
-  const handleEnableMfa = () => {
-    const s = enableMfa();
-    setSecret(s);
-    toast({ title: "2FA habilitado", description: "Escaneie o QR Code no Google Authenticator." });
+  const handleToggleMfa = async () => {
+    const newState = !user?.mfaEnabled;
+    await updateProfile({ mfaEnabled: newState });
+    toast({ title: newState ? "2FA habilitado" : "2FA desabilitado" });
   };
-
-  const handleDisableMfa = () => {
-    disableMfa();
-    setSecret(null);
-    toast({ title: "2FA desabilitado" });
-  };
-
-  const qrUrl = secret
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/FinWar:${user?.email}?secret=${secret}%26issuer=FinWar`
-    : null;
 
   return (
     <AppLayout>
@@ -46,12 +35,11 @@ export const SecuritySettings = ({ onBack }: Props) => {
       </h1>
 
       <div className="space-y-4">
-        {/* 2FA Toggle */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold">Autenticação em 2 fatores (2FA)</p>
-              <p className="text-xs text-muted-foreground">Google Authenticator / TOTP</p>
+              <p className="text-xs text-muted-foreground">Configuração visual (placeholder)</p>
             </div>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${user?.mfaEnabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
               {user?.mfaEnabled ? "Ativo" : "Inativo"}
@@ -59,37 +47,16 @@ export const SecuritySettings = ({ onBack }: Props) => {
           </div>
 
           {user?.mfaEnabled ? (
-            <button onClick={handleDisableMfa} className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors">
+            <button onClick={handleToggleMfa} className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors">
               <ShieldOff className="h-4 w-4" /> Desativar 2FA
             </button>
           ) : (
-            <button onClick={handleEnableMfa} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+            <button onClick={handleToggleMfa} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
               <ShieldCheck className="h-4 w-4" /> Ativar 2FA
             </button>
           )}
         </motion.div>
 
-        {/* QR Code */}
-        {qrUrl && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-5 space-y-4">
-            <p className="text-sm font-semibold">Escaneie no Google Authenticator</p>
-            <div className="flex justify-center rounded-xl bg-white p-4">
-              <img src={qrUrl} alt="QR Code 2FA" className="h-48 w-48" />
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded-lg bg-secondary px-3 py-2 font-mono text-xs">{secret}</code>
-              <button
-                onClick={() => { navigator.clipboard.writeText(secret!); toast({ title: "Copiado!" }); }}
-                className="rounded-lg bg-secondary p-2 hover:bg-muted transition-colors"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Ou insira o código manualmente no app.</p>
-          </motion.div>
-        )}
-
-        {/* Recovery Codes */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
