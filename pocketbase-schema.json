@@ -9,19 +9,19 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "date", "type": "date", "required": true },
-      { "name": "description", "type": "text", "required": true },
-      { "name": "amount", "type": "number", "required": true },
-      { "name": "source", "type": "select", "required": true, "options": { "values": ["santander", "bradesco", "nubank", "unknown"] } },
-      { "name": "category", "type": "select", "required": true, "options": { "values": ["supermercado", "alimentacao", "transporte", "ajuda_mae", "saude", "lazer", "investimentos", "fixas", "compras", "outros"] } },
+      { "name": "date", "type": "date", "required": false },
+      { "name": "description", "type": "text", "required": false },
+      { "name": "amount", "type": "number", "required": false },
+      { "name": "source", "type": "text", "required": false },
+      { "name": "category", "type": "text", "required": false },
       { "name": "miles_generated", "type": "number", "required": false },
       { "name": "is_inefficient", "type": "bool", "required": false },
       { "name": "is_international", "type": "bool", "required": false },
       { "name": "iof_amount", "type": "number", "required": false },
       { "name": "establishment", "type": "text", "required": false },
-      { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
+      { "name": "spouse_profile", "type": "text", "required": false },
       { "name": "is_additional_card", "type": "bool", "required": false },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "user", "type": "text", "required": false }
     ]
   },
   {
@@ -34,15 +34,15 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "name", "type": "text", "required": true },
-      { "name": "amount", "type": "number", "required": true },
-      { "name": "category", "type": "select", "required": true, "options": { "values": ["supermercado", "alimentacao", "transporte", "ajuda_mae", "saude", "lazer", "investimentos", "fixas", "compras", "outros"] } },
-      { "name": "due_date", "type": "date", "required": true },
-      { "name": "recurrence", "type": "select", "required": true, "options": { "values": ["unico", "diario", "quinzenal", "mensal", "anual"] } },
-      { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
+      { "name": "name", "type": "text", "required": false },
+      { "name": "amount", "type": "number", "required": false },
+      { "name": "category", "type": "text", "required": false },
+      { "name": "due_date", "type": "date", "required": false },
+      { "name": "recurrence", "type": "text", "required": false },
+      { "name": "spouse_profile", "type": "text", "required": false },
       { "name": "conciliado", "type": "bool", "required": false },
       { "name": "real_amount", "type": "number", "required": false },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "user", "type": "text", "required": false }
     ]
   },
   {
@@ -55,10 +55,10 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "name", "type": "text", "required": true },
-      { "name": "value", "type": "number", "required": true },
+      { "name": "name", "type": "text", "required": false },
+      { "name": "value", "type": "number", "required": false },
       { "name": "sold", "type": "bool", "required": false },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "user", "type": "text", "required": false }
     ]
   },
   {
@@ -71,15 +71,15 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "salario_liquido", "type": "number", "required": true },
-      { "name": "milhas_atuais", "type": "number", "required": true },
-      { "name": "meta_disney", "type": "number", "required": true },
-      { "name": "cotacao_dolar", "type": "number", "required": true },
-      { "name": "reserva_usd", "type": "number", "required": true },
-      { "name": "meta_usd", "type": "number", "required": true },
-      { "name": "cotacao_euro", "type": "number", "required": true },
-      { "name": "reserva_eur", "type": "number", "required": true },
-      { "name": "meta_eur", "type": "number", "required": true },
+      { "name": "salario_liquido", "type": "number", "required": false },
+      { "name": "milhas_atuais", "type": "number", "required": false },
+      { "name": "meta_disney", "type": "number", "required": false },
+      { "name": "cotacao_dolar", "type": "number", "required": false },
+      { "name": "reserva_usd", "type": "number", "required": false },
+      { "name": "meta_usd", "type": "number", "required": false },
+      { "name": "cotacao_euro", "type": "number", "required": false },
+      { "name": "reserva_eur", "type": "number", "required": false },
+      { "name": "meta_eur", "type": "number", "required": false },
       { "name": "cotacao_media_dca", "type": "number", "required": false },
       { "name": "cotacao_media_dca_eur", "type": "number", "required": false },
       { "name": "max_jantares_mes", "type": "number", "required": false },
@@ -88,7 +88,7 @@
       { "name": "iof_internacional", "type": "number", "required": false },
       { "name": "limite_seguranca", "type": "number", "required": false },
       { "name": "jantares_usados", "type": "number", "required": false },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "user", "type": "text", "required": false }
     ]
   },
   {
@@ -101,7 +101,7 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "name", "type": "text", "required": true },
+      { "name": "name", "type": "text", "required": false },
       { "name": "icon", "type": "text", "required": false },
       { "name": "color", "type": "text", "required": false }
     ]
@@ -116,10 +116,10 @@
     "updateRule": "",
     "deleteRule": "",
     "schema": [
-      { "name": "category", "type": "text", "required": true },
-      { "name": "limit_amount", "type": "number", "required": true },
-      { "name": "month_year", "type": "text", "required": true },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "category", "type": "text", "required": false },
+      { "name": "limit_amount", "type": "number", "required": false },
+      { "name": "month_year", "type": "text", "required": false },
+      { "name": "user", "type": "text", "required": false }
     ]
   },
   {
@@ -134,7 +134,7 @@
     "schema": [
       { "name": "theme", "type": "text", "required": false },
       { "name": "vertical_video_fix", "type": "bool", "required": false },
-      { "name": "user", "type": "text", "required": true }
+      { "name": "user", "type": "text", "required": false }
     ]
   }
 ]
