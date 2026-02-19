@@ -202,7 +202,7 @@ const Index = () => {
         {width > 0 && (
           <ResponsiveGridLayout
             className="dashboard-grid"
-            width={width}
+            width={Math.max(width - 2, 0)}
             layouts={responsiveLayouts}
             breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 0 }}
             cols={{ lg: 12, md: 12, sm: 12, xs: 12 }}
