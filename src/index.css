@@ -154,24 +154,43 @@ html, body {
     @apply bg-primary/20 rounded-2xl border-2 border-dashed border-primary/40;
     opacity: 0.5 !important;
   }
-  /* Resize handles: visible above content */
+  /* Grid items: obey library inline styles, never force width */
+  .react-grid-item {
+    overflow: hidden !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  /* Resize handles above content */
   .react-grid-item > .react-resizable-handle {
     z-index: 20 !important;
   }
   .react-grid-item > .react-resizable-handle::after {
     border-color: hsl(var(--muted-foreground)) !important;
   }
-  /* Prevent overflow in grid cards — min-width:0 lets flex children shrink */
-  /* Do NOT set width on grid items — react-grid-layout controls that via inline styles */
-  .react-grid-item {
-    overflow: hidden !important;
+  /* During resize/drag: disable pointer events on charts to prevent interference */
+  .react-grid-item.resizing .recharts-wrapper,
+  .react-grid-item.react-draggable-dragging .recharts-wrapper {
+    pointer-events: none !important;
+  }
+  /* Card inner wrapper: block layout, fill parent */
+  .card-inner {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+  .card-inner > .glass-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100% !important;
     min-width: 0 !important;
   }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
     overflow: hidden;
     min-width: 0 !important;
-    /* width controlled by parent grid item, not forced here */
   }
   /* Mobile: tighter padding on cards */
   @media (max-width: 640px) {
@@ -188,7 +207,6 @@ html, body {
   /* Ensure recharts never overflows */
   .recharts-wrapper {
     max-width: 100% !important;
-    width: 100% !important;
     min-width: 0 !important;
   }
   .recharts-surface {
