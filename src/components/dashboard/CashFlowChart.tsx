@@ -170,10 +170,10 @@ export const CashFlowChart = () => {
       className="glass-card rounded-2xl p-5"
     >
       {/* Performance Header */}
-      <div className="mb-3 flex items-center gap-4 flex-wrap">
-        <div>
-          <p className="text-xs text-muted-foreground">Gasto neste período</p>
-          <p className="text-lg font-bold text-foreground">{formatBRL(periodSpent)}</p>
+      <div className="mb-3 flex items-center gap-2 sm:gap-4 flex-wrap min-w-0">
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Gasto neste período</p>
+          <p className="text-base sm:text-lg font-bold text-foreground">{formatBRL(periodSpent)}</p>
         </div>
         <div className="flex items-center gap-1.5">
           {trendInfo.type === "up" && (
@@ -219,37 +219,37 @@ export const CashFlowChart = () => {
         )}
       </div>
 
-      <div className="mb-4 flex items-start justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-sm font-medium text-muted-foreground">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">
             Fluxo de Caixa Preditivo
           </h3>
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] text-muted-foreground mt-1 flex-wrap">
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-4 rounded-sm" style={{ background: "hsl(174, 62%, 42%, 0.3)" }} />
-              Média {isShortRange ? "7d" : "mensal"}
+              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: "hsl(174, 62%, 42%, 0.3)" }} />
+              Média
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0 w-4" style={{ borderTop: "2px solid hsl(var(--info))" }} />
+              <span className="inline-block h-0 w-3" style={{ borderTop: "2px solid hsl(var(--info))" }} />
               Atual
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0 w-4" style={{ borderTop: "2px dashed hsl(var(--info))" }} />
-              Projetado
+              <span className="inline-block h-0 w-3" style={{ borderTop: "2px dashed hsl(var(--info))" }} />
+              Projeção
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0 w-4" style={{ borderTop: "2px dashed hsl(var(--destructive))" }} />
+              <span className="inline-block h-0 w-3" style={{ borderTop: "2px dashed hsl(var(--destructive))" }} />
               Piso
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg bg-secondary p-0.5">
+        <div className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5 flex-shrink-0">
           {filters.map((f) => (
             <button
               key={f}
               onClick={() => setTimeFilter(f)}
-              className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all ${
+              className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-all ${
                 timeFilter === f
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
