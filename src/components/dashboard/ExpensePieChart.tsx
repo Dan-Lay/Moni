@@ -75,8 +75,8 @@ export const ExpensePieChart = () => {
         {!hasData && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
       </h3>
       <div className="flex items-start gap-3 flex-col sm:flex-row min-w-0">
-        <div className="h-40 w-full sm:w-40 sm:h-40 flex-shrink-0 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-40 w-full sm:w-40 sm:h-40 flex-shrink-0 min-w-0 relative">
+          <ResponsiveContainer width="99%" height="100%">
             <PieChart>
               <Pie
                 data={chartData}
