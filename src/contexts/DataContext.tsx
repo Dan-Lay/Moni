@@ -36,9 +36,11 @@ interface FinanceContextType {
   profileFilter: ProfileFilter;
   setProfileFilter: (p: ProfileFilter) => void;
   addTransactions: (txs: Transaction[]) => Promise<void>;
+  updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>) => Promise<void>;
   updateConfig: (partial: Partial<FinancialConfig>) => Promise<void>;
   updateDesapego: (items: DesapegoItem[]) => Promise<void>;
   updateJantares: (count: number) => Promise<void>;
+  updateCinemas: (count: number) => Promise<void>;
   addPlannedEntry: (e: PlannedEntry) => Promise<void>;
   updatePlannedEntry: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
   deletePlannedEntry: (id: string) => Promise<void>;
@@ -63,6 +65,7 @@ const DEFAULT_CONFIG: FinancialConfig = {
   cotacaoMediaDCA: 5.42, cotacaoMediaDCAEUR: 5.80,
   maxJantaresMes: 2, maxGastoJantar: 250, aportePercentual: 15,
   iofInternacional: 4.38, limiteSeguranca: 2000,
+  maxCinemasMes: 2, maxGastoCinema: 60, customCategories: [],
 };
 
 function getEmptyData(): AppData {
@@ -71,6 +74,7 @@ function getEmptyData(): AppData {
     config: { ...DEFAULT_CONFIG },
     desapegoItems: [],
     jantaresUsados: 0,
+    cinemasUsados: 0,
     plannedEntries: [],
     updatedAt: toISODate(new Date().toISOString()),
   };
@@ -124,6 +128,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         config: cfgResult.config,
         desapegoItems: desapego,
         jantaresUsados: cfgResult.jantaresUsados,
+        cinemasUsados: cfgResult.cinemasUsados ?? 0,
         plannedEntries: entries,
         updatedAt: toISODate(new Date().toISOString()),
       });
@@ -240,6 +245,22 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setData((prev) => ({ ...prev, jantaresUsados: count }));
   }, [configId, api]);
 
+  const updateCinemas = useCallback(async (count: number) => {
+    if (!configId) return;
+    await api.updateCinemasRemote(configId, count);
+    setData((prev) => ({ ...prev, cinemasUsados: count }));
+  }, [configId, api]);
+
+  const handleUpdateTransaction = useCallback(async (
+    id: string,
+    patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
+  ) => {
+    const updated = await api.updateTransaction(id, patch);
+    setData((prev) => ({
+      ...prev,
+      transactions: prev.transactions.map((t) => (t.id === id ? updated : t)),
+    }));
+  }, [api]);
   const handleAddPlannedEntry = useCallback(async (entry: PlannedEntry) => {
     if (!user) return;
     const created = await api.createPlannedEntry(entry, user.id);
@@ -271,7 +292,8 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       value={{
         data, finance, isLoading,
         profileFilter, setProfileFilter,
-        addTransactions, updateConfig, updateDesapego, updateJantares,
+        addTransactions, updateTransaction: handleUpdateTransaction,
+        updateConfig, updateDesapego, updateJantares, updateCinemas,
         addPlannedEntry: handleAddPlannedEntry,
         updatePlannedEntry: handleUpdatePlannedEntry,
         deletePlannedEntry: handleDeletePlannedEntry,

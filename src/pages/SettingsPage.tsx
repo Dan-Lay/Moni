@@ -1,12 +1,13 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Moon, Sun, User, Shield, Bell, Palette, LogOut, ChevronRight } from "lucide-react";
+import { Moon, Sun, User, Shield, Bell, Palette, LogOut, ChevronRight, Tags } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { CategoryManager } from "@/components/settings/CategoryManager";
 import { useNavigate } from "react-router-dom";
 
 type SettingsTab = "main" | "security" | "account" | "notifications";
@@ -91,6 +92,15 @@ const SettingsPage = () => {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </motion.button>
         ))}
+
+        {/* Category Manager */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <CategoryManager />
+        </motion.div>
 
         {/* Logout */}
         <motion.button

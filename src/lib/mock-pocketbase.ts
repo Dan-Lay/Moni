@@ -9,7 +9,7 @@ import {
 } from "./types";
 import {
   MOCK_TRANSACTIONS, MOCK_CONFIG, MOCK_PLANNED_ENTRIES,
-  MOCK_DESAPEGO_ITEMS, MOCK_USER, MOCK_JANTARES_USADOS,
+  MOCK_DESAPEGO_ITEMS, MOCK_USER, MOCK_JANTARES_USADOS, MOCK_CINEMAS_USADOS,
 } from "./mock-data";
 
 // ── In-memory state ──
@@ -19,6 +19,7 @@ let configId = "mock_config_001";
 let plannedEntries = [...MOCK_PLANNED_ENTRIES];
 let desapegoItems = [...MOCK_DESAPEGO_ITEMS];
 let jantaresUsados = MOCK_JANTARES_USADOS;
+let cinemasUsados = MOCK_CINEMAS_USADOS;
 let nextId = 1000;
 
 function genId(prefix: string) {
@@ -39,7 +40,7 @@ export async function createTransactions(txs: Transaction[], _userId: string): P
 
 export async function updateTransaction(
   id: string,
-  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description">>
+  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
 ): Promise<Transaction> {
   const idx = transactions.findIndex((t) => t.id === id);
   if (idx < 0) throw new Error("Transaction not found");
@@ -48,8 +49,8 @@ export async function updateTransaction(
   return updated;
 }
 
-export async function fetchConfig(_userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number }> {
-  return { id: configId, config: { ...config }, jantaresUsados };
+export async function fetchConfig(_userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number; cinemasUsados: number }> {
+  return { id: configId, config: { ...config }, jantaresUsados, cinemasUsados };
 }
 
 export async function updateConfigRemote(_configId: string, patch: Partial<FinancialConfig>): Promise<FinancialConfig> {
@@ -59,6 +60,10 @@ export async function updateConfigRemote(_configId: string, patch: Partial<Finan
 
 export async function updateJantaresRemote(_configId: string, count: number): Promise<void> {
   jantaresUsados = count;
+}
+
+export async function updateCinemasRemote(_configId: string, count: number): Promise<void> {
+  cinemasUsados = count;
 }
 
 export async function fetchPlannedEntries(_userId: string): Promise<PlannedEntry[]> {

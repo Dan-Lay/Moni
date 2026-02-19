@@ -94,6 +94,9 @@ export const MOCK_CONFIG: FinancialConfig = {
   aportePercentual: 15,
   iofInternacional: 4.38,
   limiteSeguranca: 2000,
+  maxCinemasMes: 2,
+  maxGastoCinema: 60,
+  customCategories: [],
 };
 
 export const MOCK_PLANNED_ENTRIES: PlannedEntry[] = [
@@ -141,3 +144,4 @@ export const MOCK_USER = {
 };
 
 export const MOCK_JANTARES_USADOS = 1;
+export const MOCK_CINEMAS_USADOS = 0;

@@ -100,7 +100,8 @@ export const SOURCE_LABELS: Record<TransactionSource, string> = {
 export interface Transaction {
   readonly id: string;
   readonly date: ISODateString;
-  readonly description: string;
+  readonly description: string;        // "Nome Lançamento" — raw bank description
+  readonly treatedName?: string;        // "Nome Tratado" — user-friendly alias
   readonly amount: BRLAmount; // positive = credit, negative = debit
   readonly source: TransactionSource;
   readonly category: TransactionCategory;
@@ -130,6 +131,9 @@ export interface FinancialConfig {
   readonly aportePercentual: number;
   readonly iofInternacional: number; // 4.38% for 2026
   readonly limiteSeguranca: number; // Safety floor for cash flow chart
+  readonly maxCinemasMes: number;
+  readonly maxGastoCinema: number;
+  readonly customCategories: { key: string; label: string }[];
 }
 
 export interface DesapegoItem {
@@ -144,6 +148,7 @@ export interface AppData {
   readonly config: FinancialConfig;
   readonly desapegoItems: DesapegoItem[];
   readonly jantaresUsados: number;
+  readonly cinemasUsados: number;
   readonly plannedEntries: PlannedEntry[];
   readonly updatedAt: ISODateString;
 }

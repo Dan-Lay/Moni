@@ -6,7 +6,6 @@ import { ChartSkeleton } from "./Skeletons";
 import { TransactionDetailPanel } from "./TransactionDetailPanel";
 import { useState } from "react";
 
-// Fixed color map: categories with strong semantic meaning get pinned colors
 const CATEGORY_FIXED_COLORS: Record<string, string> = {
   "Ajuda Mãe": "hsl(270, 70%, 58%)",
   "Investimentos": "hsl(160, 84%, 39%)",
@@ -38,7 +37,6 @@ const DEMO_DATA = [
 const getColor = (name: string, index: number): string =>
   CATEGORY_FIXED_COLORS[name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 
-// Reverse lookup: label → category key
 const LABEL_TO_KEY: Record<string, TransactionCategory> = Object.fromEntries(
   Object.entries(CATEGORY_LABELS).map(([k, v]) => [v, k as TransactionCategory])
 );
@@ -57,7 +55,8 @@ export const ExpensePieChart = () => {
       }))
     : DEMO_DATA;
 
-  // Get transactions for a category label
+  const total = chartData.reduce((a, d) => a + d.value, 0);
+
   const getCategoryTxs = (label: string) => {
     const catKey = LABEL_TO_KEY[label];
     if (!catKey) return [];
@@ -79,7 +78,7 @@ export const ExpensePieChart = () => {
         <div className="h-44 w-44 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-                <Pie
+              <Pie
                 data={chartData}
                 cx="50%"
                 cy="50%"
@@ -121,6 +120,7 @@ export const ExpensePieChart = () => {
         <div className="flex-1 space-y-2">
           {chartData.map((item, i) => {
             const txs = hasData ? getCategoryTxs(item.name) : [];
+            const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0";
             return (
               <div key={item.name}>
                 <button
@@ -142,7 +142,7 @@ export const ExpensePieChart = () => {
                       {item.name}
                     </span>
                   </div>
-                  <span className="font-mono font-medium">R$ {item.value.toLocaleString("pt-BR")}</span>
+                  <span className="font-mono font-medium text-foreground">{pct}%</span>
                 </button>
                 {hasData && selectedCategory === item.name && txs.length > 0 && (
                   <TransactionDetailPanel transactions={txs} label={item.name} />

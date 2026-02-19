@@ -20,6 +20,7 @@ export function mapTransaction(r: RecordModel): Transaction {
     id: r.id,
     date: toISODate(r["date"]?.split("T")[0] || r["date"]),
     description: r["description"] || "",
+    treatedName: r["treated_name"] || undefined,
     amount: toBRL(r["amount"] || 0),
     source: (r["source"] || "unknown") as TransactionSource,
     category: (r["category"] || "outros") as TransactionCategory,
@@ -75,6 +76,9 @@ export function mapFinancialConfig(r: RecordModel): FinancialConfig {
     aportePercentual: r["aporte_percentual"] ?? 15,
     iofInternacional: r["iof_internacional"] ?? 4.38,
     limiteSeguranca: r["limite_seguranca"] ?? 2000,
+    maxCinemasMes: r["max_cinemas_mes"] ?? 2,
+    maxGastoCinema: r["max_gasto_cinema"] ?? 60,
+    customCategories: r["custom_categories"] ?? [],
   };
 }
 
@@ -163,21 +167,22 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
 
 export async function updateTransaction(
   id: string,
-  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description">>
+  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
 ): Promise<Transaction> {
   const data: Record<string, unknown> = {};
   if (patch.category !== undefined) data.category = patch.category;
   if (patch.amount !== undefined) data.amount = patch.amount;
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
   if (patch.description !== undefined) data.description = patch.description;
+  if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
   const r = await pb.collection("transactions").update(id, data);
   return mapTransaction(r);
 }
 
-export async function fetchConfig(userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number }> {
+export async function fetchConfig(userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number; cinemasUsados: number }> {
   try {
     const r = await pb.collection("financial_config").getFirstListItem(`user = "${userId}"`);
-    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: r["jantares_usados"] ?? 0 };
+    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: r["jantares_usados"] ?? 0, cinemasUsados: r["cinemas_usados"] ?? 0 };
   } catch {
     // Create default config for new users
     const defaultCfg = configToRecord({
@@ -187,9 +192,10 @@ export async function fetchConfig(userId: string): Promise<{ id: string; config:
       cotacaoMediaDCA: 5.42, cotacaoMediaDCAEUR: 5.80,
       maxJantaresMes: 2, maxGastoJantar: 250, aportePercentual: 15,
       iofInternacional: 4.38, limiteSeguranca: 2000,
+      maxCinemasMes: 2, maxGastoCinema: 60, customCategories: [],
     }, userId);
     const r = await pb.collection("financial_config").create(defaultCfg);
-    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: 0 };
+    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: 0, cinemasUsados: 0 };
   }
 }
 
@@ -217,6 +223,10 @@ export async function updateConfigRemote(configId: string, patch: Partial<Financ
 
 export async function updateJantaresRemote(configId: string, count: number): Promise<void> {
   await pb.collection("financial_config").update(configId, { jantares_usados: count });
+}
+
+export async function updateCinemasRemote(configId: string, count: number): Promise<void> {
+  await pb.collection("financial_config").update(configId, { cinemas_usados: count });
 }
 
 export async function fetchPlannedEntries(userId: string): Promise<PlannedEntry[]> {
