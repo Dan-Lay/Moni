@@ -77,7 +77,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
   tx(prevMonth(25), "Farmácia Raia", -89.00, "santander", "saude", "DROGA RAIA"),
 ];
 
-export const MOCK_CONFIG: FinancialConfig = {
+export const MOCK_CONFIG: FinancialConfig & Record<string, any> = {
   salarioLiquido: 12000,
   milhasAtuais: 142500,
   metaDisney: 600000,
@@ -97,6 +97,16 @@ export const MOCK_CONFIG: FinancialConfig = {
   maxCinemasMes: 2,
   maxGastoCinema: 60,
   customCategories: [],
+  // Miguel 2027 meta
+  metaMiguelEUR: 3000,
+  reservaBRLParaMiguel: 5000,
+  // Investment breakdown
+  investPrevidencia: 300,
+  investEmergencia: 400,
+  investRendaFixa: 350,
+  investFIIs: 300,
+  investAcoes: 250,
+  investBitcoin: 200,
 };
 
 export const MOCK_PLANNED_ENTRIES: PlannedEntry[] = [
