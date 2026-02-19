@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance } from "@/contexts/DataContext";
 import { CATEGORY_LABELS, SPOUSE_LABELS, TransactionCategory, SpouseProfile } from "@/lib/types";
-import { editTransaction, getPriceAlerts } from "@/lib/storage";
+import { getPriceAlerts } from "@/lib/storage";
+import { updateTransaction } from "@/lib/pocketbase";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
@@ -65,10 +66,10 @@ const Transactions = () => {
     setEditDesc(tx.description);
   }
 
-  function confirmEdit() {
+  async function confirmEdit() {
     if (!editingId) return;
     const parsed = parseFloat(editAmount.replace(",", "."));
-    editTransaction(editingId, {
+    await updateTransaction(editingId, {
       category: editCat,
       amount: isNaN(parsed) ? undefined : -Math.abs(parsed) as any,
       spouseProfile: editAuthor,

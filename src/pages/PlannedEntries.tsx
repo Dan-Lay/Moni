@@ -4,7 +4,7 @@ import { useFinance } from "@/contexts/DataContext";
 import {
   CATEGORY_LABELS, RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
 } from "@/lib/types";
-import { addPlannedEntry, deletePlannedEntry, updatePlannedEntry } from "@/lib/storage";
+// PlannedEntry CRUD now via FinanceContext (PocketBase)
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, CheckCircle2, Circle, CalendarClock, RefreshCw,
@@ -31,7 +31,7 @@ const emptyForm = {
 };
 
 const PlannedEntriesPage = () => {
-  const { data, reload } = useFinance();
+  const { data, reload, addPlannedEntry, updatePlannedEntry, deletePlannedEntry } = useFinance();
   const entries = [...(data.plannedEntries ?? [])].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
   );
@@ -46,7 +46,7 @@ const PlannedEntriesPage = () => {
     .filter((e) => e.amount < 0)
     .reduce((a, e) => a + Math.abs(e.amount), 0);
 
-  function handleAdd() {
+  async function handleAdd() {
     const amt = parseFloat(form.amount.replace(",", "."));
     if (!form.name || isNaN(amt)) return;
     const entry: PlannedEntry = {
@@ -60,20 +60,17 @@ const PlannedEntriesPage = () => {
       conciliado: false,
       createdAt: toISODate(new Date().toISOString()),
     };
-    addPlannedEntry(entry);
+    await addPlannedEntry(entry);
     setForm(emptyForm);
     setShowForm(false);
-    reload();
   }
 
-  function handleToggleConciliated(id: string, current: boolean) {
-    updatePlannedEntry(id, { conciliado: !current });
-    reload();
+  async function handleToggleConciliated(id: string, current: boolean) {
+    await updatePlannedEntry(id, { conciliado: !current });
   }
 
-  function handleDelete(id: string) {
-    deletePlannedEntry(id);
-    reload();
+  async function handleDelete(id: string) {
+    await deletePlannedEntry(id);
   }
 
   return (
