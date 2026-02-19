@@ -1,154 +1,12 @@
 import {
-  AppData, FinancialConfig, DesapegoItem, Transaction,
+  Transaction, FinancialConfig, DesapegoItem,
   EfficiencyStats, MonthSummary, CashFlowPoint, EstablishmentRank,
   SpouseProfile, PlannedEntry,
   toISODate, toBRL, toMiles, toPercent,
 } from "./types";
 
-const STORAGE_KEY = "finwar-data";
+// ── Pure computation helpers (no localStorage) ──
 
-const DEFAULT_CONFIG: FinancialConfig = {
-  salarioLiquido: 12000,
-  milhasAtuais: 50000,
-  metaDisney: 600000,
-  cotacaoDolar: 5.0,
-  reservaUSD: 1200,
-  metaUSD: 8000,
-  cotacaoEuro: 5.65,
-  reservaEUR: 500,
-  metaEUR: 6000,
-  cotacaoMediaDCA: 5.42,
-  cotacaoMediaDCAEUR: 5.80,
-  maxJantaresMes: 2,
-  maxGastoJantar: 250,
-  aportePercentual: 15,
-  iofInternacional: 4.38,
-  limiteSeguranca: 2000,
-};
-
-const DEFAULT_DESAPEGO: DesapegoItem[] = [
-  { id: 1, name: "Carrinho de bebê Chicco", value: 450, sold: false },
-  { id: 2, name: 'Monitor Samsung 24"', value: 600, sold: true },
-  { id: 3, name: "Cadeirinha carro", value: 350, sold: false },
-  { id: 4, name: "Bicicleta ergométrica", value: 800, sold: true },
-  { id: 5, name: "iPhone 12 (usado)", value: 1200, sold: false },
-];
-
-function getDefaultData(): AppData {
-  return {
-    transactions: [],
-    config: { ...DEFAULT_CONFIG },
-    desapegoItems: [...DEFAULT_DESAPEGO],
-    jantaresUsados: 0,
-    plannedEntries: [],
-    updatedAt: toISODate(new Date().toISOString()),
-  };
-}
-
-export function loadAppData(): AppData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultData();
-    const parsed = JSON.parse(raw) as AppData;
-    // Migrate old field names
-    const config = parsed.config as any;
-    return {
-      ...getDefaultData(),
-      ...parsed,
-      config: {
-        ...DEFAULT_CONFIG,
-        ...config,
-        salarioLiquido: config.salarioLiquido ?? config.salario ?? DEFAULT_CONFIG.salarioLiquido,
-        milhasAtuais: config.milhasAtuais ?? config.milhasAcumuladas ?? DEFAULT_CONFIG.milhasAtuais,
-        metaDisney: config.metaDisney ?? config.metaMilhas ?? DEFAULT_CONFIG.metaDisney,
-      },
-    };
-  } catch {
-    return getDefaultData();
-  }
-}
-
-export function saveAppData(data: AppData): void {
-  const toSave = { ...data, updatedAt: toISODate(new Date().toISOString()) };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-}
-
-export function addTransactions(newTxs: Transaction[]): AppData {
-  const data = loadAppData();
-  const existingKeys = new Set(
-    data.transactions.map((t) => `${t.date}|${t.amount}|${t.description}`)
-  );
-  const unique = newTxs.filter(
-    (t) => !existingKeys.has(`${t.date}|${t.amount}|${t.description}`)
-  );
-  const updated: AppData = {
-    ...data,
-    transactions: [...data.transactions, ...unique].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    ),
-  };
-  saveAppData(updated);
-  return updated;
-}
-
-export function updateConfig(partial: Partial<FinancialConfig>): AppData {
-  const data = loadAppData();
-  const updated: AppData = { ...data, config: { ...data.config, ...partial } };
-  saveAppData(updated);
-  return updated;
-}
-
-export function updateDesapego(items: DesapegoItem[]): AppData {
-  const data = loadAppData();
-  const updated: AppData = { ...data, desapegoItems: items };
-  saveAppData(updated);
-  return updated;
-}
-
-export function updateJantares(count: number): AppData {
-  const data = loadAppData();
-  const updated: AppData = { ...data, jantaresUsados: count };
-  saveAppData(updated);
-  return updated;
-}
-
-// ── Planned entries (manual + recurring) ──
-export function addPlannedEntry(entry: PlannedEntry): AppData {
-  const data = loadAppData();
-  const updated: AppData = {
-    ...data,
-    plannedEntries: [...(data.plannedEntries ?? []), entry],
-  };
-  saveAppData(updated);
-  return updated;
-}
-
-export function updatePlannedEntry(id: string, patch: Partial<PlannedEntry>): AppData {
-  const data = loadAppData();
-  const updated: AppData = {
-    ...data,
-    plannedEntries: (data.plannedEntries ?? []).map((e) =>
-      e.id === id ? { ...e, ...patch } : e
-    ),
-  };
-  saveAppData(updated);
-  return updated;
-}
-
-export function deletePlannedEntry(id: string): AppData {
-  const data = loadAppData();
-  const updated: AppData = {
-    ...data,
-    plannedEntries: (data.plannedEntries ?? []).filter((e) => e.id !== id),
-  };
-  saveAppData(updated);
-  return updated;
-}
-
-/**
- * Returns PlannedEntry items whose dueDate is in the future (not yet conciliated),
- * expanded for the current month based on recurrence.
- */
 export function getFuturePlannedForMonth(entries: readonly PlannedEntry[]): PlannedEntry[] {
   const now = new Date();
   const year = now.getFullYear();
@@ -167,10 +25,6 @@ export function getFuturePlannedForMonth(entries: readonly PlannedEntry[]): Plan
   return result;
 }
 
-/**
- * Reconciliation: tries to match a transaction against an unreconciled planned entry
- * (same name fuzzy match, date within 3 days).
- */
 export function tryReconcile(tx: Transaction, entries: readonly PlannedEntry[]): string | null {
   const txDate = new Date(tx.date);
   const txDesc = tx.description.toLowerCase();
@@ -184,29 +38,11 @@ export function tryReconcile(tx: Transaction, entries: readonly PlannedEntry[]):
   return null;
 }
 
-/** Edits a transaction in-place by id */
-export function editTransaction(id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description">>): AppData {
-  const data = loadAppData();
-  const updated: AppData = {
-    ...data,
-    transactions: data.transactions.map((t) =>
-      t.id === id ? { ...t, ...patch } : t
-    ),
-  };
-  saveAppData(updated);
-  return updated;
-}
-
-/**
- * Historical price alert: compares current month avg per establishment
- * vs previous 3 months. Returns list of flagged transaction ids.
- */
 export function getPriceAlerts(txs: readonly Transaction[]): Set<string> {
   const now = new Date();
   const curYear = now.getFullYear();
   const curMonth = now.getMonth();
 
-  // Group by establishment
   const byEst: Record<string, { id: string; month: number; year: number; amount: number }[]> = {};
   for (const t of txs) {
     if (t.amount >= 0 || !t.establishment) continue;
@@ -222,7 +58,6 @@ export function getPriceAlerts(txs: readonly Transaction[]): Set<string> {
     const current = entries.filter((e) => e.year === curYear && e.month === curMonth);
     if (current.length === 0) continue;
 
-    // Previous 3 months
     const prev3: number[] = [];
     for (let i = 1; i <= 3; i++) {
       let m = curMonth - i;
@@ -305,11 +140,9 @@ export function efficiencyStats(txs: readonly Transaction[]): EfficiencyStats {
     .filter((t) => t.isInefficient)
     .reduce((a, t) => a + Math.round((Math.abs(t.amount) / 5) * 2), 0);
 
-  // International stats
   const internationalTxs = debits.filter((t) => t.isInternational);
   const internationalSpent = internationalTxs.reduce((a, t) => a + Math.abs(t.amount), 0);
   const totalIOF = internationalTxs.reduce((a, t) => a + (t.iofAmount || 0), 0);
-  // Miles that were generated considering IOF cost
   const milesAfterIOF = internationalTxs.reduce((a, t) => a + t.milesGenerated, 0);
 
   return {
@@ -345,13 +178,9 @@ export function getMonthSummary(txs: readonly Transaction[], config: FinancialCo
 }
 
 export interface CashFlowPointExtended extends CashFlowPoint {
-  readonly projecao?: number; // future planned entries (dotted)
+  readonly projecao?: number;
 }
 
-/**
- * Expands a planned entry into future occurrences based on its recurrence type.
- * Returns up to `months` months of projected entries from the entry's dueDate.
- */
 export function expandRecurrence(entry: PlannedEntry, months = 12): PlannedEntry[] {
   if (entry.recurrence === "unico") return [entry];
   const projections: PlannedEntry[] = [];
@@ -387,17 +216,14 @@ export function buildCashFlowProjection(
   const month = today.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Expand all planned entries with recurrence into projected occurrences
   const allProjected = planned.flatMap((e) => expandRecurrence(e, 12));
 
-  // Accumulate real transactions
   const byDay: Record<string, number> = {};
   for (const t of monthTxs) {
     const day = new Date(t.date).getDate().toString().padStart(2, "0");
     byDay[day] = (byDay[day] || 0) + t.amount;
   }
 
-  // Accumulate future planned entries for current month (not conciliated)
   const futurePlanned: Record<string, number> = {};
   for (const e of allProjected) {
     if (e.conciliado) continue;
@@ -439,7 +265,6 @@ export function buildCashFlowProjection(
     }
   }
 
-  // Ensure we always have a projection at end of month if there's future planned
   if (Object.keys(futurePlanned).length > 0) {
     const lastDia = daysInMonth.toString().padStart(2, "0");
     if (!points.find((p) => p.dia === lastDia)) {

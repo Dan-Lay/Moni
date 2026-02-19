@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Pencil, Check, X } from "lucide-react";
 import { Transaction, CATEGORY_LABELS, TransactionCategory } from "@/lib/types";
-import { editTransaction } from "@/lib/storage";
+import { updateTransaction } from "@/lib/pocketbase";
 import { useFinance } from "@/contexts/DataContext";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -29,8 +29,8 @@ export const TransactionDetailPanel = ({ transactions, label }: Props) => {
     setEditCategory(tx.category);
   }
 
-  function saveEdit(id: string) {
-    editTransaction(id, { category: editCategory });
+  async function saveEdit(id: string) {
+    await updateTransaction(id, { category: editCategory });
     setEditingId(null);
     reload();
   }

@@ -5,10 +5,10 @@ import { useCallback, useRef, useState } from "react";
 import { parseOFX, parseCSV } from "@/lib/parsers";
 import { useFinance } from "@/contexts/DataContext";
 import { Transaction, formatMiles } from "@/lib/types";
-import { tryReconcile, updatePlannedEntry } from "@/lib/storage";
+import { tryReconcile } from "@/lib/storage";
 
 const UploadPage = () => {
-  const { addTransactions, data, reload } = useFinance();
+  const { addTransactions, data, reload, updatePlannedEntry } = useFinance();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState<{ count: number; miles: number; source: string; spouseCount: number; reconciled: number } | null>(null);
@@ -34,7 +34,7 @@ const UploadPage = () => {
       for (const tx of txs) {
         const matchId = tryReconcile(tx, planned);
         if (matchId) {
-          updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(tx.amount) as any });
+          await updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(tx.amount) as any });
           reconciledCount++;
         }
       }
