@@ -6,6 +6,7 @@ import { getPriceAlerts } from "@/lib/storage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
+  CheckSquare, Square, Edit3,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,6 +40,11 @@ const Transactions = () => {
   const [editAuthor, setEditAuthor] = useState<SpouseProfile>("marido");
   const [editDesc, setEditDesc] = useState("");
   const [editTreatedName, setEditTreatedName] = useState("");
+
+  // Bulk edit state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCat, setBulkCat] = useState<TransactionCategory | "">("");
 
   const priceAlerts = useMemo(() => getPriceAlerts(data.transactions), [data.transactions]);
 
@@ -86,6 +92,40 @@ const Transactions = () => {
     setEditingId(null);
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((t) => t.id)));
+    }
+  }
+
+  async function applyBulkEdit() {
+    if (!bulkCat || selectedIds.size === 0) return;
+    const promises = Array.from(selectedIds).map((id) =>
+      updateTransaction(id, { category: bulkCat as TransactionCategory })
+    );
+    await Promise.all(promises);
+    setSelectedIds(new Set());
+    setBulkCat("");
+    setBulkMode(false);
+  }
+
+  function cancelBulk() {
+    setBulkMode(false);
+    setSelectedIds(new Set());
+    setBulkCat("");
+  }
+
   return (
     <AppLayout>
       <div className="mb-6 flex items-center justify-between">
@@ -93,13 +133,65 @@ const Transactions = () => {
           <h1 className="text-xl font-bold">Extrato</h1>
           <p className="text-[11px] text-muted-foreground">Dados reais por trás dos gráficos</p>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {filtered.length} lançamento{filtered.length !== 1 ? "s" : ""} ·{" "}
-          <span className="font-mono text-destructive">
-            R$ {totalFiltered.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => bulkMode ? cancelBulk() : setBulkMode(true)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              bulkMode
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            {bulkMode ? "Cancelar" : "Edição em Massa"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {filtered.length} lançamento{filtered.length !== 1 ? "s" : ""} ·{" "}
+            <span className="font-mono text-destructive">
+              R$ {totalFiltered.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </span>
           </span>
-        </span>
+        </div>
       </div>
+
+      {/* Bulk edit bar */}
+      {bulkMode && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 px-4 py-3"
+        >
+          <button
+            onClick={selectAll}
+            className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            {selectedIds.size === filtered.length ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+            {selectedIds.size === filtered.length ? "Desmarcar todos" : "Selecionar todos"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {selectedIds.size} selecionado{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <div className="flex-1" />
+          <Select value={bulkCat} onValueChange={(v) => setBulkCat(v as TransactionCategory)}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="Nova categoria..." />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                <SelectItem key={v} value={v}>{l}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <button
+            onClick={applyBulkEdit}
+            disabled={!bulkCat || selectedIds.size === 0}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 transition-all hover:bg-primary/90"
+          >
+            Aplicar
+          </button>
+        </motion.div>
+      )}
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap gap-2">
@@ -146,6 +238,7 @@ const Transactions = () => {
             {filtered.map((t, i) => {
               const isEditing = editingId === t.id;
               const hasAlert = priceAlerts.has(t.id);
+              const isSelected = selectedIds.has(t.id);
 
               return (
                 <motion.div
@@ -157,7 +250,8 @@ const Transactions = () => {
                   className={cn(
                     "glass-card rounded-xl px-4 py-3 transition-all",
                     isEditing && "ring-2 ring-primary/50",
-                    hasAlert && !isEditing && "ring-1 ring-yellow-500/40"
+                    isSelected && "ring-2 ring-primary/40 bg-primary/5",
+                    hasAlert && !isEditing && !isSelected && "ring-1 ring-yellow-500/40"
                   )}
                 >
                   {isEditing ? (
@@ -219,6 +313,17 @@ const Transactions = () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
+                      {bulkMode && (
+                        <button
+                          onClick={() => toggleSelect(t.id)}
+                          className="shrink-0 text-primary"
+                        >
+                          {isSelected
+                            ? <CheckSquare className="h-4 w-4" />
+                            : <Square className="h-4 w-4 text-muted-foreground" />
+                          }
+                        </button>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-medium truncate">
@@ -272,13 +377,15 @@ const Transactions = () => {
                             <p className="text-[10px] text-accent font-mono">+{t.milesGenerated} mi</p>
                           )}
                         </div>
-                        <button
-                          onClick={() => startEdit(t.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-                          aria-label="Editar"
-                        >
-                          <PencilLine className="h-3.5 w-3.5" />
-                        </button>
+                        {!bulkMode && (
+                          <button
+                            onClick={() => startEdit(t.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                            aria-label="Editar"
+                          >
+                            <PencilLine className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

@@ -134,6 +134,14 @@
 }
 
 @layer utilities {
+  /* React Grid Layout overrides */
+  .react-grid-item.react-grid-placeholder {
+    @apply bg-primary/20 rounded-2xl border-2 border-dashed border-primary/40;
+    opacity: 0.5 !important;
+  }
+  .react-grid-item > .react-resizable-handle::after {
+    border-color: hsl(var(--muted-foreground)) !important;
+  }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
   }
