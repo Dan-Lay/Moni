@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { pb } from "@/lib/pocketbase";
 
 export interface UserProfile {
   id: string;
@@ -12,13 +13,11 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
-  isMfaVerified: boolean;
-  login: (provider: "google") => void;
-  verifyMfa: (code: string) => boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (patch: Partial<UserProfile>) => void;
-  enableMfa: () => string; // returns fake secret
-  disableMfa: () => void;
+  updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,89 +28,80 @@ export const useAuth = () => {
   return ctx;
 };
 
-const MOCK_USER: UserProfile = {
-  id: "mock-001",
-  name: "Guerreiro(a)",
-  email: "guerreiro@finwar.app",
-  avatarUrl: "",
-  defaultProfile: "todos",
-  mfaEnabled: false,
-};
-
-// Fake TOTP secret for QR code demo
-const FAKE_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+function pbUserToProfile(model: any): UserProfile {
+  return {
+    id: model.id,
+    name: model.name || model.username || "",
+    email: model.email || "",
+    avatarUrl: model.avatar_url || "",
+    defaultProfile: model.default_profile || "todos",
+    mfaEnabled: !!model.mfa_enabled,
+  };
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem("finwar_auth");
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [isMfaVerified, setMfaVerified] = useState(() => {
-    return localStorage.getItem("finwar_mfa_verified") === "true";
-  });
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isAuthenticated = !!user && (!user.mfaEnabled || isMfaVerified);
-
-  const login = useCallback((_provider: "google") => {
-    // Mock login — will be replaced with real Supabase Auth
-    const u = { ...MOCK_USER };
-    const saved = localStorage.getItem("finwar_user_profile");
-    const merged = saved ? { ...u, ...JSON.parse(saved) } : u;
-    setUser(merged);
-    localStorage.setItem("finwar_auth", JSON.stringify(merged));
-    if (!merged.mfaEnabled) {
-      setMfaVerified(true);
-      localStorage.setItem("finwar_mfa_verified", "true");
-    } else {
-      setMfaVerified(false);
-      localStorage.removeItem("finwar_mfa_verified");
+  // Restore session from PocketBase's built-in cookie/localStorage auth store
+  useEffect(() => {
+    if (pb.authStore.isValid && pb.authStore.record) {
+      setUser(pbUserToProfile(pb.authStore.record));
     }
+    setIsLoading(false);
+
+    // Listen for auth store changes (e.g., token refresh)
+    const unsub = pb.authStore.onChange((_token, record) => {
+      if (record) {
+        setUser(pbUserToProfile(record));
+      } else {
+        setUser(null);
+      }
+    });
+    return unsub;
   }, []);
 
-  const verifyMfa = useCallback((code: string) => {
-    // Mock: accept any 6-digit code
-    if (code.length === 6 && /^\d+$/.test(code)) {
-      setMfaVerified(true);
-      localStorage.setItem("finwar_mfa_verified", "true");
-      return true;
-    }
-    return false;
+  const isAuthenticated = !!user;
+
+  const login = useCallback(async (email: string, password: string) => {
+    const authData = await pb.collection("users").authWithPassword(email, password);
+    setUser(pbUserToProfile(authData.record));
+  }, []);
+
+  const register = useCallback(async (email: string, password: string, name: string) => {
+    await pb.collection("users").create({
+      email,
+      password,
+      passwordConfirm: password,
+      name,
+      default_profile: "todos",
+    });
+    // Auto-login after registration
+    const authData = await pb.collection("users").authWithPassword(email, password);
+    setUser(pbUserToProfile(authData.record));
   }, []);
 
   const logout = useCallback(() => {
+    pb.authStore.clear();
     setUser(null);
-    setMfaVerified(false);
-    localStorage.removeItem("finwar_auth");
-    localStorage.removeItem("finwar_mfa_verified");
   }, []);
 
-  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, ...patch };
-      localStorage.setItem("finwar_auth", JSON.stringify(updated));
-      localStorage.setItem("finwar_user_profile", JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const enableMfa = useCallback(() => {
-    updateProfile({ mfaEnabled: true });
-    return FAKE_TOTP_SECRET;
-  }, [updateProfile]);
-
-  const disableMfa = useCallback(() => {
-    updateProfile({ mfaEnabled: false });
-    setMfaVerified(true);
-    localStorage.setItem("finwar_mfa_verified", "true");
-  }, [updateProfile]);
+  const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {
+    if (!user) return;
+    const data: Record<string, unknown> = {};
+    if (patch.name !== undefined) data.name = patch.name;
+    if (patch.avatarUrl !== undefined) data.avatar_url = patch.avatarUrl;
+    if (patch.defaultProfile !== undefined) data.default_profile = patch.defaultProfile;
+    if (patch.mfaEnabled !== undefined) data.mfa_enabled = patch.mfaEnabled;
+    const updated = await pb.collection("users").update(user.id, data);
+    setUser(pbUserToProfile(updated));
+  }, [user]);
 
   return (
     <AuthContext.Provider
       value={{
-        user, isAuthenticated, isMfaVerified,
-        login, verifyMfa, logout, updateProfile,
-        enableMfa, disableMfa,
+        user, isAuthenticated, isLoading,
+        login, register, logout, updateProfile,
       }}
     >
       {children}

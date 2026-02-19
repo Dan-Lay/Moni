@@ -2,14 +2,18 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground text-sm">Carregando...</div>
+      </div>
+    );
   }
 
-  if (user.mfaEnabled && !isAuthenticated) {
-    return <Navigate to="/verify-2fa" replace />;
+  if (!user || !isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

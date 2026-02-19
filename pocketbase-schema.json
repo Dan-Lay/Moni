@@ -1,0 +1,95 @@
+[
+  {
+    "name": "users",
+    "type": "auth",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "avatar_url", "type": "text", "required": false },
+      { "name": "default_profile", "type": "select", "required": false, "options": { "values": ["marido", "esposa", "todos"] } },
+      { "name": "mfa_enabled", "type": "bool", "required": false }
+    ],
+    "options": {
+      "allowEmailAuth": true,
+      "allowUsernameAuth": false,
+      "requireEmail": true,
+      "minPasswordLength": 8
+    }
+  },
+  {
+    "name": "transactions",
+    "type": "base",
+    "schema": [
+      { "name": "date", "type": "date", "required": true },
+      { "name": "description", "type": "text", "required": true },
+      { "name": "amount", "type": "number", "required": true },
+      { "name": "source", "type": "select", "required": true, "options": { "values": ["santander", "bradesco", "nubank", "unknown"] } },
+      { "name": "category", "type": "select", "required": true, "options": { "values": ["supermercado", "alimentacao", "transporte", "ajuda_mae", "saude", "lazer", "investimentos", "fixas", "compras", "outros"] } },
+      { "name": "miles_generated", "type": "number", "required": false },
+      { "name": "is_inefficient", "type": "bool", "required": false },
+      { "name": "is_international", "type": "bool", "required": false },
+      { "name": "iof_amount", "type": "number", "required": false },
+      { "name": "establishment", "type": "text", "required": false },
+      { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
+      { "name": "is_additional_card", "type": "bool", "required": false },
+      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+    ]
+  },
+  {
+    "name": "planned_entries",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "amount", "type": "number", "required": true },
+      { "name": "category", "type": "select", "required": true, "options": { "values": ["supermercado", "alimentacao", "transporte", "ajuda_mae", "saude", "lazer", "investimentos", "fixas", "compras", "outros"] } },
+      { "name": "due_date", "type": "date", "required": true },
+      { "name": "recurrence", "type": "select", "required": true, "options": { "values": ["unico", "diario", "quinzenal", "mensal", "anual"] } },
+      { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
+      { "name": "conciliado", "type": "bool", "required": false },
+      { "name": "real_amount", "type": "number", "required": false },
+      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+    ]
+  },
+  {
+    "name": "desapego_items",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "value", "type": "number", "required": true },
+      { "name": "sold", "type": "bool", "required": false },
+      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+    ]
+  },
+  {
+    "name": "financial_config",
+    "type": "base",
+    "schema": [
+      { "name": "salario_liquido", "type": "number", "required": true },
+      { "name": "milhas_atuais", "type": "number", "required": true },
+      { "name": "meta_disney", "type": "number", "required": true },
+      { "name": "cotacao_dolar", "type": "number", "required": true },
+      { "name": "reserva_usd", "type": "number", "required": true },
+      { "name": "meta_usd", "type": "number", "required": true },
+      { "name": "cotacao_euro", "type": "number", "required": true },
+      { "name": "reserva_eur", "type": "number", "required": true },
+      { "name": "meta_eur", "type": "number", "required": true },
+      { "name": "cotacao_media_dca", "type": "number", "required": false },
+      { "name": "cotacao_media_dca_eur", "type": "number", "required": false },
+      { "name": "max_jantares_mes", "type": "number", "required": false },
+      { "name": "max_gasto_jantar", "type": "number", "required": false },
+      { "name": "aporte_percentual", "type": "number", "required": false },
+      { "name": "iof_internacional", "type": "number", "required": false },
+      { "name": "limite_seguranca", "type": "number", "required": false },
+      { "name": "jantares_usados", "type": "number", "required": false },
+      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+    ]
+  },
+  {
+    "name": "app_settings",
+    "type": "base",
+    "schema": [
+      { "name": "theme", "type": "text", "required": false },
+      { "name": "vertical_video_fix", "type": "bool", "required": false },
+      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+    ]
+  }
+]
