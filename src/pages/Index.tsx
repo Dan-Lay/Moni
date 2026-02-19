@@ -198,27 +198,28 @@ const Index = () => {
         </div>
       </header>
 
-      <div ref={containerRef}>
-        <ResponsiveGridLayout
-          className="dashboard-grid"
-          width={width || 1200}
-          layouts={responsiveLayouts}
-          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 0 }}
-          cols={{ lg: 12, md: 12, sm: 12, xs: 12 }}
-          rowHeight={ROW_HEIGHT}
-          onLayoutChange={handleLayoutChange}
-          compactor={verticalCompactor}
-          margin={isMobile ? [8, 8] : [16, 16]}
-          containerPadding={[0, 0]}
-          dragConfig={{
-            handle: ".drag-handle",
-            enabled: !isMobile,
-          }}
-          resizeConfig={{
-            enabled: !isMobile,
-            handles: ["se", "e", "s"],
-          }}
-        >
+      <div ref={containerRef} className="w-full overflow-hidden">
+        {width > 0 && (
+          <ResponsiveGridLayout
+            className="dashboard-grid"
+            width={width}
+            layouts={responsiveLayouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 0 }}
+            cols={{ lg: 12, md: 12, sm: 12, xs: 12 }}
+            rowHeight={ROW_HEIGHT}
+            onLayoutChange={handleLayoutChange}
+            compactor={verticalCompactor}
+            margin={isMobile ? [8, 8] : [16, 16]}
+            containerPadding={[0, 0]}
+            dragConfig={{
+              handle: ".drag-handle",
+              enabled: !isMobile,
+            }}
+            resizeConfig={{
+              enabled: !isMobile,
+              handles: ["se", "e", "s"],
+            }}
+          >
           {ALL_CARDS.map((card) => {
             const CardComponent = card.component;
             return (
@@ -235,6 +236,7 @@ const Index = () => {
             );
           })}
         </ResponsiveGridLayout>
+        )}
       </div>
     </AppLayout>
   );
