@@ -74,8 +74,8 @@ export const ExpensePieChart = () => {
         Gastos por Categoria
         {!hasData && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
       </h3>
-      <div className="flex items-center gap-4">
-        <div className="h-44 w-44 flex-shrink-0">
+      <div className="flex items-start gap-3 flex-col sm:flex-row min-w-0">
+        <div className="h-40 w-full sm:w-40 sm:h-40 flex-shrink-0 min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

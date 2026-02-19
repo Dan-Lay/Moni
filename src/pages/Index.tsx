@@ -223,12 +223,12 @@ const Index = () => {
           {ALL_CARDS.map((card) => {
             const CardComponent = card.component;
             return (
-              <div key={card.id} className="group">
-                <div className="h-full flex flex-col overflow-hidden">
+              <div key={card.id} className="group w-full min-w-0">
+                <div className="h-full flex flex-col overflow-hidden min-w-0">
                   <div className="drag-handle absolute top-1 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
                     <div className="h-1 w-8 rounded-full bg-muted-foreground/30" />
                   </div>
-                  <div className="flex-1 min-h-0 [&>.glass-card]:h-full [&>.glass-card]:flex [&>.glass-card]:flex-col">
+                  <div className="flex-1 min-h-0 min-w-0 [&>.glass-card]:h-full [&>.glass-card]:flex [&>.glass-card]:flex-col [&>.glass-card]:min-w-0">
                     <CardComponent />
                   </div>
                 </div>

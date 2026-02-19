@@ -261,8 +261,8 @@ export const CashFlowChart = () => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 min-h-0 relative w-full">
+        <ResponsiveContainer width="99%" height="100%">
           <ComposedChart data={chartData}>
             <defs>
               <linearGradient id="mediaGrad" x1="0" y1="0" x2="0" y2="1">
