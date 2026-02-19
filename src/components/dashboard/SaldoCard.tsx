@@ -50,9 +50,9 @@ export const SaldoCard = () => {
           const pct = (card.total / salarioLiquido) * 100;
           return (
             <div key={card.source}>
-              <div className="flex justify-between text-xs mb-0.5">
-                <span className="text-muted-foreground">{CARD_LABELS[card.source]}</span>
-                <span className="font-mono font-semibold text-destructive">{formatBRLShort(card.total)}</span>
+              <div className="flex justify-between text-xs mb-0.5 min-w-0">
+                <span className="text-muted-foreground truncate">{CARD_LABELS[card.source]}</span>
+                <span className="font-mono font-semibold text-destructive flex-shrink-0">{formatBRLShort(card.total)}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
                 <motion.div
