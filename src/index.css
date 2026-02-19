@@ -175,20 +175,27 @@ html, body, #root {
     height: 100% !important;
     min-width: 0 !important;
     min-height: 0 !important;
-    overflow: hidden;
+    overflow: hidden !important;
   }
   .card-inner > .glass-card {
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 0% !important;
+    width: 100% !important;
     min-width: 0 !important;
     min-height: 0 !important;
+    overflow: hidden !important;
   }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
-    overflow: hidden;
+    overflow: hidden !important;
     min-width: 0 !important;
     min-height: 0 !important;
+  }
+  /* Kill any scrollbars inside cards */
+  .glass-card *:not(.scroll-area-viewport) {
+    overflow: visible;
+    scrollbar-width: none;
   }
   /* Mobile: tighter padding on cards */
   @media (max-width: 640px) {
@@ -206,13 +213,16 @@ html, body, #root {
   .recharts-wrapper {
     max-width: 100% !important;
     min-width: 0 !important;
+    overflow: hidden !important;
   }
   .recharts-surface {
     max-width: 100% !important;
+    overflow: hidden !important;
   }
-  /* Dashboard grid container — no forced min/max, let library measure */
+  /* Dashboard grid container */
   .dashboard-grid {
     min-width: 0 !important;
+    overflow: hidden !important;
   }
 
   .glow-primary {
