@@ -3,7 +3,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance } from "@/contexts/DataContext";
 import { CATEGORY_LABELS, SPOUSE_LABELS, TransactionCategory, SpouseProfile } from "@/lib/types";
 import { getPriceAlerts } from "@/lib/storage";
-import { updateTransaction } from "@/lib/pocketbase";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
@@ -28,7 +27,7 @@ const AUTHOR_OPTIONS: { value: SpouseProfile | "all"; label: string }[] = [
 ];
 
 const Transactions = () => {
-  const { data, reload } = useFinance();
+  const { data, updateTransaction } = useFinance();
   const allTxs = [...data.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const [search, setSearch] = useState("");
@@ -39,15 +38,18 @@ const Transactions = () => {
   const [editAmount, setEditAmount] = useState("");
   const [editAuthor, setEditAuthor] = useState<SpouseProfile>("marido");
   const [editDesc, setEditDesc] = useState("");
+  const [editTreatedName, setEditTreatedName] = useState("");
 
   const priceAlerts = useMemo(() => getPriceAlerts(data.transactions), [data.transactions]);
 
   const filtered = useMemo(() => {
     return allTxs.filter((t) => {
       if (t.amount > 0) return false;
+      const searchLower = search.toLowerCase();
       const matchSearch = search === "" ||
-        t.description.toLowerCase().includes(search.toLowerCase()) ||
-        t.establishment.toLowerCase().includes(search.toLowerCase());
+        t.description.toLowerCase().includes(searchLower) ||
+        t.establishment.toLowerCase().includes(searchLower) ||
+        (t.treatedName && t.treatedName.toLowerCase().includes(searchLower));
       const matchCat = catFilter === "all" || t.category === catFilter;
       const matchAuthor = authorFilter === "all" || t.spouseProfile === authorFilter;
       return matchSearch && matchCat && matchAuthor;
@@ -64,6 +66,7 @@ const Transactions = () => {
     setEditAmount(Math.abs(tx.amount).toFixed(2));
     setEditAuthor(tx.spouseProfile);
     setEditDesc(tx.description);
+    setEditTreatedName(tx.treatedName || "");
   }
 
   async function confirmEdit() {
@@ -74,9 +77,9 @@ const Transactions = () => {
       amount: isNaN(parsed) ? undefined : -Math.abs(parsed) as any,
       spouseProfile: editAuthor,
       description: editDesc || undefined,
+      treatedName: editTreatedName || undefined,
     });
     setEditingId(null);
-    reload();
   }
 
   function cancelEdit() {
@@ -164,7 +167,7 @@ const Transactions = () => {
                           value={editDesc}
                           onChange={(e) => setEditDesc(e.target.value)}
                           className="h-7 text-xs font-medium flex-1"
-                          placeholder="Nome / Descrição"
+                          placeholder="Nome Lançamento (desc. banco)"
                         />
                         <div className="flex gap-1 shrink-0">
                           <button
@@ -181,6 +184,12 @@ const Transactions = () => {
                           </button>
                         </div>
                       </div>
+                      <Input
+                        value={editTreatedName}
+                        onChange={(e) => setEditTreatedName(e.target.value)}
+                        className="h-7 text-xs flex-1"
+                        placeholder="Nome Tratado (apelido amigável)"
+                      />
                       <div className="flex flex-wrap gap-2">
                         <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
                           <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
@@ -212,7 +221,14 @@ const Transactions = () => {
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-medium truncate">{t.establishment || t.description}</p>
+                          <p className="text-sm font-medium truncate">
+                            {t.treatedName || t.establishment || t.description}
+                          </p>
+                          {t.treatedName && (
+                            <span className="text-[10px] text-muted-foreground truncate max-w-24">
+                              ({t.description})
+                            </span>
+                          )}
                           {hasAlert && (
                             <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-semibold">
                               <TrendingUp className="h-2.5 w-2.5" /> +20% histórico

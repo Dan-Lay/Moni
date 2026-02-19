@@ -4,10 +4,9 @@ import { useFinance } from "@/contexts/DataContext";
 import {
   CATEGORY_LABELS, RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
 } from "@/lib/types";
-// PlannedEntry CRUD now via FinanceContext (PocketBase)
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, CheckCircle2, Circle, CalendarClock, RefreshCw,
+  Plus, Trash2, CheckCircle2, Circle, CalendarClock, RefreshCw, PencilLine, Check, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,7 @@ const emptyForm = {
 };
 
 const PlannedEntriesPage = () => {
-  const { data, reload, addPlannedEntry, updatePlannedEntry, deletePlannedEntry } = useFinance();
+  const { data, addPlannedEntry, updatePlannedEntry, deletePlannedEntry } = useFinance();
   const entries = [...(data.plannedEntries ?? [])].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
   );
@@ -103,7 +102,7 @@ const PlannedEntriesPage = () => {
             <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Lançamento</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <Input
-                placeholder="Nome (ex: Aluguel)"
+                placeholder="Nome Lançamento (desc. banco)"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="h-9 text-sm"
@@ -165,7 +164,7 @@ const PlannedEntriesPage = () => {
           <div className="space-y-2">
             <AnimatePresence>
               {pending.map((e) => (
-                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} />
+                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
               ))}
             </AnimatePresence>
           </div>
@@ -181,7 +180,7 @@ const PlannedEntriesPage = () => {
           <div className="space-y-2 opacity-60">
             <AnimatePresence>
               {conciliated.map((e) => (
-                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} />
+                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
               ))}
             </AnimatePresence>
           </div>
@@ -201,9 +200,85 @@ interface EntryRowProps {
   entry: PlannedEntry;
   onToggle: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
 }
 
-function EntryRow({ entry, onToggle, onDelete }: EntryRowProps) {
+function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(entry.name);
+  const [editAmount, setEditAmount] = useState(Math.abs(entry.amount).toFixed(2));
+  const [editCat, setEditCat] = useState(entry.category);
+  const [editDate, setEditDate] = useState(entry.dueDate);
+  const [editProfile, setEditProfile] = useState(entry.spouseProfile);
+
+  function startEdit() {
+    setEditName(entry.name);
+    setEditAmount(Math.abs(entry.amount).toFixed(2));
+    setEditCat(entry.category);
+    setEditDate(entry.dueDate);
+    setEditProfile(entry.spouseProfile);
+    setIsEditing(true);
+  }
+
+  async function confirmEdit() {
+    const amt = parseFloat(editAmount.replace(",", "."));
+    await onUpdate(entry.id, {
+      name: editName,
+      amount: isNaN(amt) ? entry.amount : -Math.abs(amt),
+      category: editCat,
+      dueDate: toISODate(editDate),
+      spouseProfile: editProfile,
+    });
+    setIsEditing(false);
+  }
+
+  if (isEditing) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card rounded-xl px-4 py-3 ring-2 ring-primary/50"
+      >
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-7 text-xs flex-1" placeholder="Nome" />
+            <div className="flex gap-1 shrink-0">
+              <button onClick={confirmEdit} className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setIsEditing(false)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+              <Input className="h-7 w-28 pl-7 text-xs font-mono" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+            </div>
+            <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value as any)} className="h-7 w-36 text-xs" />
+            <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
+              <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                  <SelectItem key={v} value={v}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={editProfile} onValueChange={(v) => setEditProfile(v as SpouseProfile)}>
+              <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="marido">Marido</SelectItem>
+                <SelectItem value="esposa">Esposa</SelectItem>
+                <SelectItem value="familia">Família</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -263,6 +338,13 @@ function EntryRow({ entry, onToggle, onDelete }: EntryRowProps) {
             </p>
           )}
         </div>
+        <button
+          onClick={startEdit}
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Editar"
+        >
+          <PencilLine className="h-3.5 w-3.5" />
+        </button>
         <button
           onClick={() => onDelete(entry.id)}
           className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-destructive transition-colors"

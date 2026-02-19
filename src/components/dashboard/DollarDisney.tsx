@@ -90,7 +90,7 @@ export const DollarDisney = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-secondary/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Média DCA</p>
+              <p className="text-[10px] text-muted-foreground">{isEuropa ? "Média ECA" : "Média DCA"}</p>
               <p className="font-mono text-sm font-semibold">R$ {media.toFixed(2)}</p>
             </div>
             <div className="rounded-lg bg-secondary/50 px-3 py-2">
