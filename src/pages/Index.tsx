@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Sparkles, Users, User, GripVertical } from "lucide-react";
+import { Sparkles, Users, User, GripVertical, Maximize2, Minimize2 } from "lucide-react";
 import { SaldoCard } from "@/components/dashboard/SaldoCard";
 import { DisneyThermometer } from "@/components/dashboard/DisneyThermometer";
 import { MiguelThermometer } from "@/components/dashboard/MiguelThermometer";
@@ -16,30 +16,41 @@ import { useFinance, ProfileFilter } from "@/contexts/DataContext";
 import { motion } from "framer-motion";
 
 const STORAGE_KEY = "moni_dashboard_order";
+const SIZE_STORAGE_KEY = "moni_dashboard_sizes";
+
+type CardSize = "third" | "half" | "full";
 
 interface CardDef {
   id: string;
   component: React.FC;
-  span: "full" | "third" | "half";
+  defaultSpan: CardSize;
+  allowResize?: boolean; // false = locked to defaultSpan
 }
 
 const ALL_CARDS: CardDef[] = [
-  { id: "cashflow", component: CashFlowChart, span: "full" },
-  { id: "saldo", component: SaldoCard, span: "third" },
-  { id: "disney", component: DisneyThermometer, span: "third" },
-  { id: "miguel", component: MiguelThermometer, span: "third" },
-  { id: "liberdade", component: LiberdadeFinanceira, span: "third" },
-  { id: "entretenimento", component: DinnerCounter, span: "third" },
-  { id: "eficiencia", component: EfficiencyIndex, span: "third" },
-  { id: "dolar", component: DollarDisney, span: "third" },
-  { id: "pie", component: ExpensePieChart, span: "half" },
-  { id: "top", component: TopEstablishments, span: "full" },
+  { id: "cashflow", component: CashFlowChart, defaultSpan: "full", allowResize: false },
+  { id: "saldo", component: SaldoCard, defaultSpan: "third" },
+  { id: "disney", component: DisneyThermometer, defaultSpan: "third" },
+  { id: "miguel", component: MiguelThermometer, defaultSpan: "third" },
+  { id: "liberdade", component: LiberdadeFinanceira, defaultSpan: "third" },
+  { id: "entretenimento", component: DinnerCounter, defaultSpan: "third" },
+  { id: "eficiencia", component: EfficiencyIndex, defaultSpan: "third" },
+  { id: "dolar", component: DollarDisney, defaultSpan: "third" },
+  { id: "pie", component: ExpensePieChart, defaultSpan: "half" },
+  { id: "top", component: TopEstablishments, defaultSpan: "full" },
 ];
 
-const SPAN_CLASSES: Record<string, string> = {
+const SPAN_CLASSES: Record<CardSize, string> = {
   full: "col-span-1 lg:col-span-3 xl:col-span-3",
   half: "col-span-1 lg:col-span-2 xl:col-span-2",
   third: "col-span-1",
+};
+
+// Size cycle: third -> half -> full -> third
+const NEXT_SIZE: Record<CardSize, CardSize> = {
+  third: "half",
+  half: "full",
+  full: "third",
 };
 
 function loadOrder(): string[] | null {
@@ -48,6 +59,15 @@ function loadOrder(): string[] | null {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function loadSizes(): Record<string, CardSize> {
+  try {
+    const raw = localStorage.getItem(SIZE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -64,6 +84,28 @@ const Index = () => {
     const saved = loadOrder();
     return saved && saved.length === ALL_CARDS.length ? saved : ALL_CARDS.map((c) => c.id);
   });
+
+  const [cardSizes, setCardSizes] = useState<Record<string, CardSize>>(loadSizes);
+
+  const getCardSize = useCallback(
+    (card: CardDef): CardSize => {
+      if (card.allowResize === false) return card.defaultSpan;
+      return cardSizes[card.id] ?? card.defaultSpan;
+    },
+    [cardSizes]
+  );
+
+  const toggleSize = useCallback((cardId: string) => {
+    setCardSizes((prev) => {
+      const card = ALL_CARDS.find((c) => c.id === cardId);
+      if (!card || card.allowResize === false) return prev;
+      const currentSize = prev[cardId] ?? card.defaultSpan;
+      const next = NEXT_SIZE[currentSize];
+      const updated = { ...prev, [cardId]: next };
+      localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const orderedCards = useMemo(
     () => cardOrder.map((id) => ALL_CARDS.find((c) => c.id === id)!).filter(Boolean),
@@ -120,20 +162,37 @@ const Index = () => {
             >
               {orderedCards.map((card, index) => {
                 const CardComponent = card.component;
+                const size = getCardSize(card);
+                const canResize = card.allowResize !== false;
                 return (
                   <Draggable key={card.id} draggableId={card.id} index={index}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`${SPAN_CLASSES[card.span]} ${snapshot.isDragging ? "z-50 opacity-90" : ""}`}
+                        className={`${SPAN_CLASSES[size]} transition-all duration-300 ${snapshot.isDragging ? "z-50 opacity-90" : ""}`}
                       >
                         <div className="relative group">
-                          <div
-                            {...provided.dragHandleProps}
-                            className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing rounded-lg bg-secondary/80 p-1"
-                          >
-                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canResize && (
+                              <button
+                                onClick={() => toggleSize(card.id)}
+                                className="rounded-lg bg-secondary/80 p-1 hover:bg-secondary cursor-pointer"
+                                title={`Tamanho: ${size === "third" ? "1/3" : size === "half" ? "1/2" : "Total"} — Clique para alterar`}
+                              >
+                                {size === "full" ? (
+                                  <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                ) : (
+                                  <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                              </button>
+                            )}
+                            <div
+                              {...provided.dragHandleProps}
+                              className="cursor-grab active:cursor-grabbing rounded-lg bg-secondary/80 p-1 hover:bg-secondary"
+                            >
+                              <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
                           </div>
                           <CardComponent />
                         </div>
