@@ -1,23 +1,13 @@
 [
   {
-    "name": "users",
-    "type": "auth",
-    "schema": [
-      { "name": "name", "type": "text", "required": true },
-      { "name": "avatar_url", "type": "text", "required": false },
-      { "name": "default_profile", "type": "select", "required": false, "options": { "values": ["marido", "esposa", "todos"] } },
-      { "name": "mfa_enabled", "type": "bool", "required": false }
-    ],
-    "options": {
-      "allowEmailAuth": true,
-      "allowUsernameAuth": false,
-      "requireEmail": true,
-      "minPasswordLength": 8
-    }
-  },
-  {
     "name": "transactions",
     "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
     "schema": [
       { "name": "date", "type": "date", "required": true },
       { "name": "description", "type": "text", "required": true },
@@ -31,12 +21,18 @@
       { "name": "establishment", "type": "text", "required": false },
       { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
       { "name": "is_additional_card", "type": "bool", "required": false },
-      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+      { "name": "user", "type": "text", "required": true }
     ]
   },
   {
     "name": "planned_entries",
     "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
     "schema": [
       { "name": "name", "type": "text", "required": true },
       { "name": "amount", "type": "number", "required": true },
@@ -46,22 +42,34 @@
       { "name": "spouse_profile", "type": "select", "required": true, "options": { "values": ["marido", "esposa", "familia"] } },
       { "name": "conciliado", "type": "bool", "required": false },
       { "name": "real_amount", "type": "number", "required": false },
-      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+      { "name": "user", "type": "text", "required": true }
     ]
   },
   {
     "name": "desapego_items",
     "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
     "schema": [
       { "name": "name", "type": "text", "required": true },
       { "name": "value", "type": "number", "required": true },
       { "name": "sold", "type": "bool", "required": false },
-      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+      { "name": "user", "type": "text", "required": true }
     ]
   },
   {
     "name": "financial_config",
     "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
     "schema": [
       { "name": "salario_liquido", "type": "number", "required": true },
       { "name": "milhas_atuais", "type": "number", "required": true },
@@ -80,16 +88,53 @@
       { "name": "iof_internacional", "type": "number", "required": false },
       { "name": "limite_seguranca", "type": "number", "required": false },
       { "name": "jantares_usados", "type": "number", "required": false },
-      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+      { "name": "user", "type": "text", "required": true }
+    ]
+  },
+  {
+    "name": "categories",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "icon", "type": "text", "required": false },
+      { "name": "color", "type": "text", "required": false }
+    ]
+  },
+  {
+    "name": "budgets",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      { "name": "category", "type": "text", "required": true },
+      { "name": "limit_amount", "type": "number", "required": true },
+      { "name": "month_year", "type": "text", "required": true },
+      { "name": "user", "type": "text", "required": true }
     ]
   },
   {
     "name": "app_settings",
     "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
     "schema": [
       { "name": "theme", "type": "text", "required": false },
       { "name": "vertical_video_fix", "type": "bool", "required": false },
-      { "name": "user", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "maxSelect": 1 } }
+      { "name": "user", "type": "text", "required": true }
     ]
   }
 ]
