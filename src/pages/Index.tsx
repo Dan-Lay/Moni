@@ -51,14 +51,22 @@ const PROFILE_OPTIONS: { value: ProfileFilter; label: string; icon?: React.React
   { value: "esposa", label: "Esposa", icon: <User className="h-3 w-3" /> },
 ];
 
-// Mobile layout: single column stacked
-const MOBILE_LAYOUT: LayoutItem[] = DEFAULT_LAYOUT.map((item, i) => ({
-  ...item,
-  x: 0,
-  w: 12,
-  y: i * 4,
-  minW: 12,
-}));
+// Mobile layout: single column stacked with appropriate heights
+const MOBILE_HEIGHTS: Record<string, number> = {
+  cashflow: 8, saldo: 6, disney: 5, miguel: 5,
+  liberdade: 9, entretenimento: 7, eficiencia: 6,
+  dolar: 6, pie: 7, top: 7,
+};
+
+const MOBILE_LAYOUT: LayoutItem[] = (() => {
+  let y = 0;
+  return DEFAULT_LAYOUT.map((item) => {
+    const h = MOBILE_HEIGHTS[item.i] ?? 5;
+    const entry = { ...item, x: 0, w: 12, y, h, minW: 12, minH: 3 };
+    y += h;
+    return entry;
+  });
+})();
 
 const ROW_HEIGHT = 40;
 const DEBOUNCE_MS = 1500;
@@ -139,40 +147,44 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 lg:hidden">
-            <Sparkles className="h-4 w-4 text-primary" />
+      <header className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 lg:hidden">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary hidden lg:block" />
-            <h1 className="text-lg font-bold tracking-tight">Moni</h1>
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary hidden lg:block" />
+            <h1 className="text-base sm:text-lg font-bold tracking-tight">Moni</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOrganizeLayout}
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
-            title="Organizar layout automaticamente"
-          >
-            <LayoutGrid className="h-3 w-3" />
-            <span className="hidden sm:inline">Organizar</span>
-          </button>
-          <button
-            onClick={handleResetLayout}
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
-            title="Resetar layout do dashboard"
-          >
-            <RotateCcw className="h-3 w-3" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
-          <div className="flex items-center gap-1 rounded-xl bg-secondary p-1">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+          {!isMobile && (
+            <>
+              <button
+                onClick={handleOrganizeLayout}
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+                title="Organizar layout automaticamente"
+              >
+                <LayoutGrid className="h-3 w-3" />
+                <span className="hidden sm:inline">Organizar</span>
+              </button>
+              <button
+                onClick={handleResetLayout}
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+                title="Resetar layout do dashboard"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            </>
+          )}
+          <div className="flex items-center gap-0.5 rounded-xl bg-secondary p-0.5 sm:p-1">
             {PROFILE_OPTIONS.map((opt) => (
               <motion.button
                 key={opt.value}
                 onClick={() => setProfileFilter(opt.value)}
                 whileTap={{ scale: 0.95 }}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
+                className={`flex items-center gap-0.5 sm:gap-1 rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold transition-all ${
                   profileFilter === opt.value
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -196,7 +208,7 @@ const Index = () => {
           rowHeight={ROW_HEIGHT}
           onLayoutChange={handleLayoutChange}
           compactor={verticalCompactor}
-          margin={[16, 16]}
+          margin={isMobile ? [8, 8] : [16, 16]}
           containerPadding={[0, 0]}
           dragConfig={{
             handle: ".drag-handle",

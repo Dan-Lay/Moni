@@ -142,13 +142,30 @@
   .react-grid-item > .react-resizable-handle::after {
     border-color: hsl(var(--muted-foreground)) !important;
   }
-  /* Prevent internal scrollbars in grid cards */
+  /* Prevent internal scrollbars and overflow in grid cards */
   .react-grid-item {
     overflow: hidden !important;
   }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
     overflow: hidden;
+  }
+  /* Mobile: tighter padding on cards */
+  @media (max-width: 640px) {
+    .glass-card {
+      padding: 0.75rem;
+    }
+    .glass-card .text-3xl {
+      font-size: 1.5rem;
+    }
+    .glass-card .text-2xl {
+      font-size: 1.25rem;
+    }
+  }
+  /* Ensure recharts never overflows */
+  .recharts-wrapper,
+  .recharts-surface {
+    max-width: 100% !important;
   }
 
   .glow-primary {
