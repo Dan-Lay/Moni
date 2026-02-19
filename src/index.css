@@ -154,11 +154,9 @@ html, body {
     @apply bg-primary/20 rounded-2xl border-2 border-dashed border-primary/40;
     opacity: 0.5 !important;
   }
-  /* Grid items: obey library inline styles, never force width */
+  /* Grid items: DO NOT override width/min-width/max-width — library controls via inline styles */
   .react-grid-item {
     overflow: hidden !important;
-    min-width: 0 !important;
-    max-width: none !important;
   }
   /* Resize handles above content */
   .react-grid-item > .react-resizable-handle {
@@ -212,10 +210,8 @@ html, body {
   .recharts-surface {
     max-width: 100% !important;
   }
-  /* Dashboard grid container */
+  /* Dashboard grid container — no forced min/max, let library measure */
   .dashboard-grid {
-    width: 100% !important;
-    max-width: 100% !important;
     min-width: 0 !important;
   }
 
