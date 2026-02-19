@@ -198,7 +198,7 @@ const Index = () => {
         </div>
       </header>
 
-      <div ref={containerRef} className="w-full">
+      <div ref={containerRef} className="w-full min-w-0 overflow-x-hidden">
         {width > 0 && (
           <ResponsiveGridLayout
             className="dashboard-grid"
