@@ -6,7 +6,7 @@ import {
 } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Sparkles, Users, User, RotateCcw } from "lucide-react";
+import { Sparkles, Users, User, RotateCcw, LayoutGrid } from "lucide-react";
 import { SaldoCard } from "@/components/dashboard/SaldoCard";
 import { DisneyThermometer } from "@/components/dashboard/DisneyThermometer";
 import { MiguelThermometer } from "@/components/dashboard/MiguelThermometer";
@@ -22,7 +22,7 @@ import { useFinance, ProfileFilter } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import {
-  DEFAULT_LAYOUT, loadLayoutFromStorage, saveLayoutToStorage,
+  DEFAULT_LAYOUT, IDEAL_LAYOUT, loadLayoutFromStorage, saveLayoutToStorage,
   clearLayoutStorage, loadLayoutFromPB, saveLayoutToPB, resetLayoutInPB,
 } from "@/lib/dashboard-layout";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -122,6 +122,12 @@ const Index = () => {
     }
   }, [isMockMode, user?.id]);
 
+  const handleOrganizeLayout = useCallback(() => {
+    const organized = [...IDEAL_LAYOUT];
+    setCurrentLayout(organized);
+    persistLayout(organized);
+  }, [persistLayout]);
+
   const responsiveLayouts: ResponsiveLayouts = {
     lg: currentLayout,
     md: currentLayout,
@@ -144,6 +150,14 @@ const Index = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleOrganizeLayout}
+            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+            title="Organizar layout automaticamente"
+          >
+            <LayoutGrid className="h-3 w-3" />
+            <span className="hidden sm:inline">Organizar</span>
+          </button>
           <button
             onClick={handleResetLayout}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
@@ -197,11 +211,13 @@ const Index = () => {
             const CardComponent = card.component;
             return (
               <div key={card.id} className="group">
-                <div className="h-full overflow-auto">
+                <div className="h-full flex flex-col overflow-hidden">
                   <div className="drag-handle absolute top-1 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
                     <div className="h-1 w-8 rounded-full bg-muted-foreground/30" />
                   </div>
-                  <CardComponent />
+                  <div className="flex-1 min-h-0 [&>.glass-card]:h-full [&>.glass-card]:flex [&>.glass-card]:flex-col">
+                    <CardComponent />
+                  </div>
                 </div>
               </div>
             );

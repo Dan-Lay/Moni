@@ -22,6 +22,20 @@ export const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "top",            x: 0, y: 18, w: 12, h: 5, minW: 6, minH: 4 },
 ];
 
+// ── Ideal "organized" layout — clean symmetrical grid, no content clipping ──
+export const IDEAL_LAYOUT: LayoutItem[] = [
+  { i: "cashflow",       x: 0,  y: 0,  w: 12, h: 7,  minW: 6, minH: 5 },
+  { i: "saldo",          x: 0,  y: 7,  w: 4,  h: 5,  minW: 3, minH: 4 },
+  { i: "disney",         x: 4,  y: 7,  w: 4,  h: 5,  minW: 3, minH: 4 },
+  { i: "miguel",         x: 8,  y: 7,  w: 4,  h: 5,  minW: 3, minH: 4 },
+  { i: "liberdade",      x: 0,  y: 12, w: 4,  h: 7,  minW: 3, minH: 5 },
+  { i: "entretenimento", x: 4,  y: 12, w: 4,  h: 7,  minW: 3, minH: 5 },
+  { i: "eficiencia",     x: 8,  y: 12, w: 4,  h: 5,  minW: 3, minH: 4 },
+  { i: "dolar",          x: 8,  y: 17, w: 4,  h: 5,  minW: 3, minH: 4 },
+  { i: "pie",            x: 0,  y: 19, w: 6,  h: 6,  minW: 4, minH: 5 },
+  { i: "top",            x: 6,  y: 19, w: 6,  h: 6,  minW: 4, minH: 5 },
+];
+
 // ── localStorage helpers (Mock Mode) ──
 export function loadLayoutFromStorage(): LayoutItem[] | null {
   try {
