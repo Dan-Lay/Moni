@@ -1,6 +1,12 @@
-import { useState, useMemo, useCallback } from "react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Sparkles, Users, User, GripVertical, Maximize2, Minimize2 } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import {
+  ResponsiveGridLayout, useContainerWidth,
+  type LayoutItem, type Layout, type ResponsiveLayouts,
+  verticalCompactor,
+} from "react-grid-layout";
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import { Sparkles, Users, User, RotateCcw } from "lucide-react";
 import { SaldoCard } from "@/components/dashboard/SaldoCard";
 import { DisneyThermometer } from "@/components/dashboard/DisneyThermometer";
 import { MiguelThermometer } from "@/components/dashboard/MiguelThermometer";
@@ -13,63 +19,31 @@ import { EfficiencyIndex } from "@/components/dashboard/EfficiencyIndex";
 import { TopEstablishments } from "@/components/dashboard/TopEstablishments";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, ProfileFilter } from "@/contexts/DataContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
-
-const STORAGE_KEY = "moni_dashboard_order";
-const SIZE_STORAGE_KEY = "moni_dashboard_sizes";
-
-type CardSize = "third" | "half" | "full";
+import {
+  DEFAULT_LAYOUT, loadLayoutFromStorage, saveLayoutToStorage,
+  clearLayoutStorage, loadLayoutFromPB, saveLayoutToPB, resetLayoutInPB,
+} from "@/lib/dashboard-layout";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CardDef {
   id: string;
   component: React.FC;
-  defaultSpan: CardSize;
-  allowResize?: boolean; // false = locked to defaultSpan
 }
 
 const ALL_CARDS: CardDef[] = [
-  { id: "cashflow", component: CashFlowChart, defaultSpan: "full", allowResize: false },
-  { id: "saldo", component: SaldoCard, defaultSpan: "third" },
-  { id: "disney", component: DisneyThermometer, defaultSpan: "third" },
-  { id: "miguel", component: MiguelThermometer, defaultSpan: "third" },
-  { id: "liberdade", component: LiberdadeFinanceira, defaultSpan: "third" },
-  { id: "entretenimento", component: DinnerCounter, defaultSpan: "third" },
-  { id: "eficiencia", component: EfficiencyIndex, defaultSpan: "third" },
-  { id: "dolar", component: DollarDisney, defaultSpan: "third" },
-  { id: "pie", component: ExpensePieChart, defaultSpan: "half" },
-  { id: "top", component: TopEstablishments, defaultSpan: "full" },
+  { id: "cashflow", component: CashFlowChart },
+  { id: "saldo", component: SaldoCard },
+  { id: "disney", component: DisneyThermometer },
+  { id: "miguel", component: MiguelThermometer },
+  { id: "liberdade", component: LiberdadeFinanceira },
+  { id: "entretenimento", component: DinnerCounter },
+  { id: "eficiencia", component: EfficiencyIndex },
+  { id: "dolar", component: DollarDisney },
+  { id: "pie", component: ExpensePieChart },
+  { id: "top", component: TopEstablishments },
 ];
-
-const SPAN_CLASSES: Record<CardSize, string> = {
-  full: "col-span-1 lg:col-span-3 xl:col-span-3",
-  half: "col-span-1 lg:col-span-2 xl:col-span-2",
-  third: "col-span-1",
-};
-
-// Size cycle: third -> half -> full -> third
-const NEXT_SIZE: Record<CardSize, CardSize> = {
-  third: "half",
-  half: "full",
-  full: "third",
-};
-
-function loadOrder(): string[] | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function loadSizes(): Record<string, CardSize> {
-  try {
-    const raw = localStorage.getItem(SIZE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
 
 const PROFILE_OPTIONS: { value: ProfileFilter; label: string; icon?: React.ReactNode }[] = [
   { value: "todos", label: "Geral", icon: <Users className="h-3 w-3" /> },
@@ -77,49 +51,85 @@ const PROFILE_OPTIONS: { value: ProfileFilter; label: string; icon?: React.React
   { value: "esposa", label: "Esposa", icon: <User className="h-3 w-3" /> },
 ];
 
+// Mobile layout: single column stacked
+const MOBILE_LAYOUT: LayoutItem[] = DEFAULT_LAYOUT.map((item, i) => ({
+  ...item,
+  x: 0,
+  w: 12,
+  y: i * 4,
+  minW: 12,
+}));
+
+const ROW_HEIGHT = 40;
+const DEBOUNCE_MS = 1500;
+
 const Index = () => {
   const { profileFilter, setProfileFilter } = useFinance();
+  const { user, isMockMode } = useAuth();
+  const isMobile = useIsMobile();
+  const { width, containerRef } = useContainerWidth();
 
-  const [cardOrder, setCardOrder] = useState<string[]>(() => {
-    const saved = loadOrder();
-    return saved && saved.length === ALL_CARDS.length ? saved : ALL_CARDS.map((c) => c.id);
-  });
+  const [currentLayout, setCurrentLayout] = useState<LayoutItem[]>([...DEFAULT_LAYOUT]);
+  const [loaded, setLoaded] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [cardSizes, setCardSizes] = useState<Record<string, CardSize>>(loadSizes);
+  // Load layout on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      let saved: LayoutItem[] | null = null;
 
-  const getCardSize = useCallback(
-    (card: CardDef): CardSize => {
-      if (card.allowResize === false) return card.defaultSpan;
-      return cardSizes[card.id] ?? card.defaultSpan;
-    },
-    [cardSizes]
-  );
+      if (isMockMode) {
+        saved = loadLayoutFromStorage();
+      } else if (user?.id) {
+        saved = await loadLayoutFromPB(user.id);
+      }
 
-  const toggleSize = useCallback((cardId: string) => {
-    setCardSizes((prev) => {
-      const card = ALL_CARDS.find((c) => c.id === cardId);
-      if (!card || card.allowResize === false) return prev;
-      const currentSize = prev[cardId] ?? card.defaultSpan;
-      const next = NEXT_SIZE[currentSize];
-      const updated = { ...prev, [cardId]: next };
-      localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+      if (!cancelled) {
+        setCurrentLayout(saved ?? [...DEFAULT_LAYOUT]);
+        setLoaded(true);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id, isMockMode]);
 
-  const orderedCards = useMemo(
-    () => cardOrder.map((id) => ALL_CARDS.find((c) => c.id === id)!).filter(Boolean),
-    [cardOrder]
-  );
+  // Debounced save
+  const persistLayout = useCallback((newLayout: LayoutItem[]) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      if (isMockMode) {
+        saveLayoutToStorage(newLayout);
+      } else if (user?.id) {
+        saveLayoutToPB(user.id, newLayout);
+      }
+    }, DEBOUNCE_MS);
+  }, [isMockMode, user?.id]);
 
-  const onDragEnd = useCallback((result: DropResult) => {
-    if (!result.destination) return;
-    const newOrder = [...cardOrder];
-    const [moved] = newOrder.splice(result.source.index, 1);
-    newOrder.splice(result.destination.index, 0, moved);
-    setCardOrder(newOrder);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
-  }, [cardOrder]);
+  const handleLayoutChange = useCallback((layout: Layout) => {
+    // Layout is readonly LayoutItem[], we need mutable copy
+    const mutable = layout.map((item) => ({ ...item }));
+    setCurrentLayout(mutable);
+    persistLayout(mutable);
+  }, [persistLayout]);
+
+  const handleResetLayout = useCallback(() => {
+    setCurrentLayout([...DEFAULT_LAYOUT]);
+    if (isMockMode) {
+      clearLayoutStorage();
+    } else if (user?.id) {
+      resetLayoutInPB(user.id);
+    }
+  }, [isMockMode, user?.id]);
+
+  const responsiveLayouts: ResponsiveLayouts = {
+    lg: currentLayout,
+    md: currentLayout,
+    sm: MOBILE_LAYOUT,
+    xs: MOBILE_LAYOUT,
+  };
+
+  if (!loaded) return null;
 
   return (
     <AppLayout>
@@ -133,79 +143,71 @@ const Index = () => {
             <h1 className="text-lg font-bold tracking-tight">Moni</h1>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-xl bg-secondary p-1">
-          {PROFILE_OPTIONS.map((opt) => (
-            <motion.button
-              key={opt.value}
-              onClick={() => setProfileFilter(opt.value)}
-              whileTap={{ scale: 0.95 }}
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
-                profileFilter === opt.value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {opt.icon}
-              {opt.label}
-            </motion.button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleResetLayout}
+            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+            title="Resetar layout do dashboard"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span className="hidden sm:inline">Reset</span>
+          </button>
+          <div className="flex items-center gap-1 rounded-xl bg-secondary p-1">
+            {PROFILE_OPTIONS.map((opt) => (
+              <motion.button
+                key={opt.value}
+                onClick={() => setProfileFilter(opt.value)}
+                whileTap={{ scale: 0.95 }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
+                  profileFilter === opt.value
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="dashboard">
-          {(provided) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="grid gap-4 grid-cols-1 lg:grid-cols-3"
-            >
-              {orderedCards.map((card, index) => {
-                const CardComponent = card.component;
-                const size = getCardSize(card);
-                const canResize = card.allowResize !== false;
-                return (
-                  <Draggable key={card.id} draggableId={card.id} index={index}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className={`${SPAN_CLASSES[size]} transition-all duration-300 ${snapshot.isDragging ? "z-50 opacity-90" : ""}`}
-                      >
-                        <div className="relative group">
-                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {canResize && (
-                              <button
-                                onClick={() => toggleSize(card.id)}
-                                className="rounded-lg bg-secondary/80 p-1 hover:bg-secondary cursor-pointer"
-                                title={`Tamanho: ${size === "third" ? "1/3" : size === "half" ? "1/2" : "Total"} — Clique para alterar`}
-                              >
-                                {size === "full" ? (
-                                  <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                ) : (
-                                  <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                )}
-                              </button>
-                            )}
-                            <div
-                              {...provided.dragHandleProps}
-                              className="cursor-grab active:cursor-grabbing rounded-lg bg-secondary/80 p-1 hover:bg-secondary"
-                            >
-                              <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                            </div>
-                          </div>
-                          <CardComponent />
-                        </div>
-                      </div>
-                    )}
-                  </Draggable>
-                );
-              })}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+      <div ref={containerRef}>
+        <ResponsiveGridLayout
+          className="dashboard-grid"
+          width={width || 1200}
+          layouts={responsiveLayouts}
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 0 }}
+          cols={{ lg: 12, md: 12, sm: 12, xs: 12 }}
+          rowHeight={ROW_HEIGHT}
+          onLayoutChange={handleLayoutChange}
+          compactor={verticalCompactor}
+          margin={[16, 16]}
+          containerPadding={[0, 0]}
+          dragConfig={{
+            handle: ".drag-handle",
+            enabled: !isMobile,
+          }}
+          resizeConfig={{
+            enabled: !isMobile,
+            handles: ["se", "e", "s"],
+          }}
+        >
+          {ALL_CARDS.map((card) => {
+            const CardComponent = card.component;
+            return (
+              <div key={card.id} className="group">
+                <div className="h-full overflow-auto">
+                  <div className="drag-handle absolute top-1 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                    <div className="h-1 w-8 rounded-full bg-muted-foreground/30" />
+                  </div>
+                  <CardComponent />
+                </div>
+              </div>
+            );
+          })}
+        </ResponsiveGridLayout>
+      </div>
     </AppLayout>
   );
 };
