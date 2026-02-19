@@ -117,18 +117,12 @@
     --info-foreground: 0 0% 100%;
   }
 }
-html, body {
+html, body, #root {
   overflow-x: clip !important;
   max-width: 100vw !important;
   margin: 0;
   padding: 0;
   width: 100% !important;
-}
-
-#root {
-  width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: clip !important;
 }
 
 @layer base {
@@ -155,9 +149,11 @@ html, body {
     @apply bg-primary/20 rounded-2xl border-2 border-dashed border-primary/40;
     opacity: 0.5 !important;
   }
-  /* Grid items: DO NOT override width/min-width/max-width — library controls via inline styles */
+  /* Grid items: library controls width via inline styles, we only ensure shrinkability */
   .react-grid-item {
     overflow: hidden !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
   }
   /* Resize handles above content */
   .react-grid-item > .react-resizable-handle {
@@ -171,25 +167,28 @@ html, body {
   .react-grid-item.react-draggable-dragging .recharts-wrapper {
     pointer-events: none !important;
   }
-  /* Card inner wrapper: block layout, fill parent */
+  /* Card inner wrapper: flex column, fill parent, allow shrink */
   .card-inner {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    min-width: 0 !important;
-    overflow: hidden;
-  }
-  .card-inner > .glass-card {
     display: flex !important;
     flex-direction: column !important;
     width: 100% !important;
     height: 100% !important;
     min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+  .card-inner > .glass-card {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
   }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
     overflow: hidden;
     min-width: 0 !important;
+    min-height: 0 !important;
   }
   /* Mobile: tighter padding on cards */
   @media (max-width: 640px) {
