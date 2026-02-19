@@ -118,15 +118,23 @@
   }
 }
 html, body {
-  overflow-x: hidden;
-  max-width: 100vw;
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 
 @layer base {
   *,
   *::before,
   *::after {
-    box-sizing: border-box;
+    box-sizing: border-box !important;
     @apply border-border;
   }
 
@@ -149,13 +157,16 @@ html, body {
   .react-grid-item > .react-resizable-handle::after {
     border-color: hsl(var(--muted-foreground)) !important;
   }
-  /* Prevent internal scrollbars and overflow in grid cards */
+  /* Prevent overflow in grid cards — min-width:0 lets flex children shrink */
   .react-grid-item {
     overflow: hidden !important;
+    min-width: 0 !important;
   }
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
     overflow: hidden;
+    min-width: 0 !important;
+    width: 100% !important;
   }
   /* Mobile: tighter padding on cards */
   @media (max-width: 640px) {
@@ -170,9 +181,19 @@ html, body {
     }
   }
   /* Ensure recharts never overflows */
-  .recharts-wrapper,
+  .recharts-wrapper {
+    max-width: 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
   .recharts-surface {
     max-width: 100% !important;
+  }
+  /* Dashboard grid container */
+  .dashboard-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
   }
 
   .glow-primary {
