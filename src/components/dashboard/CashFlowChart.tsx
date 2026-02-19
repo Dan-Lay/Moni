@@ -261,7 +261,7 @@ export const CashFlowChart = () => {
         </div>
       </div>
 
-      <div className="h-56">
+      <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>
             <defs>
