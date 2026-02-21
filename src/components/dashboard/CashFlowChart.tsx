@@ -261,7 +261,7 @@ export const CashFlowChart = () => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 min-w-0 relative w-full" style={{ flexGrow: 1 }}>
+      <div className="min-h-0 min-w-0 relative w-full" style={{ height: 220 }}>
         <ResponsiveContainer width="99%" height="100%">
           <ComposedChart data={chartData}>
             <defs>

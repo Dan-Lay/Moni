@@ -1,12 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinance } from "@/contexts/DataContext";
-import { ArrowLeft, User, Camera, RotateCcw } from "lucide-react";
+import { ArrowLeft, User, Camera } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { clearLayoutStorage, resetLayoutInPB } from "@/lib/dashboard-layout";
 type ViewProfile = "marido" | "esposa" | "todos";
 
 interface Props {
@@ -14,18 +13,9 @@ interface Props {
 }
 
 export const AccountSettings = ({ onBack }: Props) => {
-  const { user, updateProfile, isMockMode } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { setProfileFilter } = useFinance();
   const { toast } = useToast();
-
-  const handleResetLayout = async () => {
-    if (isMockMode) {
-      clearLayoutStorage();
-    } else if (user?.id) {
-      await resetLayoutInPB(user.id);
-    }
-    toast({ title: "Layout resetado", description: "A Moni restaurou o layout padrão do Dashboard. Recarregue a página para ver." });
-  };
 
   const handleNameChange = (name: string) => {
     updateProfile({ name });
@@ -102,18 +92,6 @@ export const AccountSettings = ({ onBack }: Props) => {
           </div>
         </motion.div>
 
-        {/* Reset Dashboard Layout */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-5 space-y-3">
-          <p className="text-sm font-semibold">Layout do Dashboard</p>
-          <p className="text-xs text-muted-foreground">Restaure o layout padrão caso tenha reorganizado os cards.</p>
-          <button
-            onClick={handleResetLayout}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground hover:border-destructive/30 hover:text-destructive transition-all"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Resetar Layout do Dashboard
-          </button>
-        </motion.div>
       </div>
     </AppLayout>
   );
