@@ -134,6 +134,8 @@ export interface FinancialConfig {
   readonly maxCinemasMes: number;
   readonly maxGastoCinema: number;
   readonly customCategories: { key: string; label: string }[];
+  readonly hiddenBuiltInCategories?: string[];
+  readonly renamedBuiltInCategories?: Record<string, string>;
 }
 
 export interface DesapegoItem {

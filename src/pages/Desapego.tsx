@@ -11,13 +11,25 @@ const Desapego = () => {
   const [newName, setNewName] = useState("");
   const [newValue, setNewValue] = useState("");
 
+  const formatCurrency = (raw: string): string => {
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return "";
+    const cents = parseInt(digits, 10);
+    return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const parseCurrency = (formatted: string): number => {
+    const digits = formatted.replace(/\D/g, "");
+    return parseInt(digits || "0", 10) / 100;
+  };
+
   const toggleSold = (id: number) => {
     updateDesapego(items.map((item) => (item.id === id ? { ...item, sold: !item.sold } : item)));
   };
 
   const addItem = () => {
     if (!newName.trim() || !newValue.trim()) return;
-    updateDesapego([...items, { id: Date.now(), name: newName.trim(), value: parseFloat(newValue) || 0, sold: false }]);
+    updateDesapego([...items, { id: Date.now(), name: newName.trim(), value: parseCurrency(newValue), sold: false }]);
     setNewName("");
     setNewValue("");
   };
@@ -38,8 +50,12 @@ const Desapego = () => {
       <div className="mb-4 glass-card rounded-xl p-4 flex gap-2 flex-wrap">
         <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome do item"
           className="flex-1 min-w-[140px] rounded-lg bg-secondary px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
-        <input value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder="Valor (R$)" type="number"
-          className="w-28 rounded-lg bg-secondary px-3 py-2 text-sm font-mono outline-none placeholder:text-muted-foreground" />
+        <div className="relative w-32">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">R$</span>
+          <input value={newValue} onChange={(e) => setNewValue(formatCurrency(e.target.value))} placeholder="0,00"
+            inputMode="numeric"
+            className="w-full rounded-lg bg-secondary pl-9 pr-3 py-2 text-sm font-mono outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+        </div>
         <button onClick={addItem} className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-all">
           <Plus className="h-4 w-4" /> Adicionar
         </button>
