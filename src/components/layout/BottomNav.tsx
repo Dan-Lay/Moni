@@ -7,7 +7,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: PieChart, label: "Gastos", path: "/expenses" },
   null, // placeholder for FAB
-  { icon: CalendarClock, label: "Contas", path: "/planned" },
+  { icon: CalendarClock, label: "Lançam.", path: "/planned" },
   { icon: Settings, label: "Config", path: "/settings" },
 ];
 

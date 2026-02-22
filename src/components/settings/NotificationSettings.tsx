@@ -17,7 +17,7 @@ interface NotifToggle {
 const TOGGLES: NotifToggle[] = [
   { id: "fatura", icon: CreditCard, title: "Fatura Fechando", desc: "Alerta 3 dias antes do fechamento do cartão" },
   { id: "disney", icon: Plane, title: "Meta Disney Atingida", desc: "Notificação quando milhas ou USD atingirem a meta" },
-  { id: "planned", icon: Bell, title: "Contas a Pagar", desc: "Lembrete de lançamentos planejados próximos do vencimento" },
+  { id: "planned", icon: Bell, title: "Lançamentos", desc: "Lembrete de lançamentos planejados próximos do vencimento" },
 ];
 
 export const NotificationSettings = ({ onBack }: Props) => {
