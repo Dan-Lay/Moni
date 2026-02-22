@@ -14,6 +14,23 @@ export const pb = new PocketBase(PB_URL);
 // Disable auto-cancellation so parallel requests work
 pb.autoCancellation(false);
 
+// ── Auto-healing: intercept 400/403 errors, invalidate cache & retry once ──
+import { invalidateCategoryCache } from "./category-cache";
+
+async function withAutoHeal<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    const status = err?.status ?? err?.response?.status;
+    if (status === 400 || status === 403) {
+      console.warn(`[auto-heal] Got ${status}, invalidating category cache and retrying…`);
+      invalidateCategoryCache();
+      await ensureCategoryCache();
+      return await fn();
+    }
+    throw err;
+  }
+}
 // ── Type mappers: PocketBase record → App types ──
 
 export function mapTransaction(r: RecordModel): Transaction {
@@ -159,26 +176,30 @@ export async function fetchAllTransactions(userId: string): Promise<Transaction[
 }
 
 export async function createTransactions(txs: Transaction[], userId: string): Promise<Transaction[]> {
-  const created: Transaction[] = [];
-  for (const tx of txs) {
-    const r = await pb.collection("transactions").create(txToRecord(tx, userId));
-    created.push(mapTransaction(r));
-  }
-  return created;
+  return withAutoHeal(async () => {
+    const created: Transaction[] = [];
+    for (const tx of txs) {
+      const r = await pb.collection("transactions").create(txToRecord(tx, userId));
+      created.push(mapTransaction(r));
+    }
+    return created;
+  });
 }
 
 export async function updateTransaction(
   id: string,
   patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
 ): Promise<Transaction> {
-  const data: Record<string, unknown> = {};
-  if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
-  if (patch.amount !== undefined) data.amount = patch.amount;
-  if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
-  if (patch.description !== undefined) data.description = patch.description;
-  if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
-  const r = await pb.collection("transactions").update(id, data);
-  return mapTransaction(r);
+  return withAutoHeal(async () => {
+    const data: Record<string, unknown> = {};
+    if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
+    if (patch.amount !== undefined) data.amount = patch.amount;
+    if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
+    if (patch.description !== undefined) data.description = patch.description;
+    if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
+    const r = await pb.collection("transactions").update(id, data);
+    return mapTransaction(r);
+  });
 }
 
 export async function fetchConfig(userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number; cinemasUsados: number }> {
@@ -241,22 +262,26 @@ export async function fetchPlannedEntries(userId: string): Promise<PlannedEntry[
 }
 
 export async function createPlannedEntry(entry: PlannedEntry, userId: string): Promise<PlannedEntry> {
-  const r = await pb.collection("planned_entries").create(plannedToRecord(entry, userId));
-  return mapPlannedEntry(r);
+  return withAutoHeal(async () => {
+    const r = await pb.collection("planned_entries").create(plannedToRecord(entry, userId));
+    return mapPlannedEntry(r);
+  });
 }
 
 export async function updatePlannedEntryRemote(id: string, patch: Partial<PlannedEntry>): Promise<PlannedEntry> {
-  const data: Record<string, unknown> = {};
-  if (patch.name !== undefined) data.name = patch.name;
-  if (patch.amount !== undefined) data.amount = patch.amount;
-  if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
-  if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
-  if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
-  if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
-  if (patch.conciliado !== undefined) data.conciliado = patch.conciliado;
-  if (patch.realAmount !== undefined) data.real_amount = patch.realAmount;
-  const r = await pb.collection("planned_entries").update(id, data);
-  return mapPlannedEntry(r);
+  return withAutoHeal(async () => {
+    const data: Record<string, unknown> = {};
+    if (patch.name !== undefined) data.name = patch.name;
+    if (patch.amount !== undefined) data.amount = patch.amount;
+    if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
+    if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
+    if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
+    if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
+    if (patch.conciliado !== undefined) data.conciliado = patch.conciliado;
+    if (patch.realAmount !== undefined) data.real_amount = patch.realAmount;
+    const r = await pb.collection("planned_entries").update(id, data);
+    return mapPlannedEntry(r);
+  });
 }
 
 export async function deletePlannedEntryRemote(id: string): Promise<void> {
