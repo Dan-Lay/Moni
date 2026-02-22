@@ -4,6 +4,7 @@ import {
   TransactionSource, TransactionCategory, SpouseProfile, RecurrenceType,
   toISODate, toBRL, toMiles,
 } from "./types";
+import { categoryIdToName, categoryNameToId, ensureCategoryCache } from "./category-cache";
 
 // PocketBase URL — configurable via env or defaults to Tailscale IP
 const PB_URL = import.meta.env.VITE_POCKETBASE_URL || "http://100.82.134.109:8090";
@@ -23,7 +24,7 @@ export function mapTransaction(r: RecordModel): Transaction {
     treatedName: r["treated_name"] || undefined,
     amount: toBRL(r["amount"] || 0),
     source: (r["source"] || "unknown") as TransactionSource,
-    category: (r["category"] || "outros") as TransactionCategory,
+    category: (categoryIdToName(r["category"] || "outros")) as TransactionCategory,
     milesGenerated: toMiles(r["miles_generated"] || 0),
     isInefficient: !!r["is_inefficient"],
     isInternational: !!r["is_international"],
@@ -39,7 +40,7 @@ export function mapPlannedEntry(r: RecordModel): PlannedEntry {
     id: r.id,
     name: r["name"] || "",
     amount: r["amount"] || 0,
-    category: (r["category"] || "outros") as TransactionCategory,
+    category: (categoryIdToName(r["category"] || "outros")) as TransactionCategory,
     dueDate: toISODate(r["due_date"]?.split("T")[0] || r["due_date"]),
     recurrence: (r["recurrence"] || "unico") as RecurrenceType,
     spouseProfile: (r["spouse_profile"] || "familia") as SpouseProfile,
@@ -90,7 +91,7 @@ export function txToRecord(tx: Transaction, userId: string): Record<string, unkn
     description: tx.description,
     amount: tx.amount,
     source: tx.source,
-    category: tx.category,
+    category: categoryNameToId(tx.category),
     miles_generated: tx.milesGenerated,
     is_inefficient: tx.isInefficient,
     is_international: tx.isInternational,
@@ -106,7 +107,7 @@ export function plannedToRecord(e: PlannedEntry, userId: string): Record<string,
   return {
     name: e.name,
     amount: e.amount,
-    category: e.category,
+    category: categoryNameToId(e.category),
     due_date: e.dueDate,
     recurrence: e.recurrence,
     spouse_profile: e.spouseProfile,
@@ -149,6 +150,7 @@ export function configToRecord(cfg: Partial<FinancialConfig>, userId: string): R
 // ── CRUD API functions ──
 
 export async function fetchAllTransactions(userId: string): Promise<Transaction[]> {
+  await ensureCategoryCache();
   const records = await pb.collection("transactions").getFullList({
     filter: `user = "${userId}"`,
     sort: "-date",
@@ -170,7 +172,7 @@ export async function updateTransaction(
   patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
 ): Promise<Transaction> {
   const data: Record<string, unknown> = {};
-  if (patch.category !== undefined) data.category = patch.category;
+  if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
   if (patch.amount !== undefined) data.amount = patch.amount;
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
   if (patch.description !== undefined) data.description = patch.description;
@@ -230,6 +232,7 @@ export async function updateCinemasRemote(configId: string, count: number): Prom
 }
 
 export async function fetchPlannedEntries(userId: string): Promise<PlannedEntry[]> {
+  await ensureCategoryCache();
   const records = await pb.collection("planned_entries").getFullList({
     filter: `user = "${userId}"`,
     sort: "-due_date",
@@ -246,7 +249,7 @@ export async function updatePlannedEntryRemote(id: string, patch: Partial<Planne
   const data: Record<string, unknown> = {};
   if (patch.name !== undefined) data.name = patch.name;
   if (patch.amount !== undefined) data.amount = patch.amount;
-  if (patch.category !== undefined) data.category = patch.category;
+  if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
   if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
   if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
