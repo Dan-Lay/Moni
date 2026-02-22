@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload as UploadIcon, FileText, FileSpreadsheet, CheckCircle, AlertCircle,
-  Plane, Link2, Loader2, Sparkles, Plus, ChevronDown,
+  Plane, Link2, Loader2, Sparkles, Plus, ChevronDown, EyeOff, Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useRef, useState, useEffect } from "react";
@@ -24,6 +24,7 @@ interface ReviewRow {
   tx: Transaction;
   ruleMatch: CategorizationRule | null;
   status: "auto" | "pending";
+  ignored: boolean;
 }
 
 // ── Chunked processing helper ──
@@ -101,6 +102,7 @@ const UploadPage = () => {
   const [rules, setRules] = useState<CategorizationRule[]>([]);
   const [showReview, setShowReview] = useState(false);
   const [importSummary, setImportSummary] = useState<{ count: number; miles: number; source: string; spouseCount: number; reconciled: number } | null>(null);
+  const [onlyCategorized, setOnlyCategorized] = useState(false);
 
   // ── Create Rule dialog ──
   const [ruleDialog, setRuleDialog] = useState<{ open: boolean; rowIdx: number; keyword: string; category: TransactionCategory; profile: SpouseProfile }>({
@@ -165,8 +167,10 @@ const UploadPage = () => {
       if (ai >= 0) setAmountCol(ai);
 
       setShowMapping(true);
+    } else if (ext === "pdf") {
+      setError("Suporte a PDF em desenvolvimento. Por enquanto, exporte a fatura como CSV ou OFX no app do seu banco.");
     } else {
-      setError(`Formato .${ext} não suportado. Use OFX ou CSV.`);
+      setError(`Formato .${ext} não suportado. Use OFX, CSV ou PDF.`);
     }
   }, [sourceHint, data.config.cotacaoDolar]);
 
@@ -215,14 +219,13 @@ const UploadPage = () => {
             category: ruleMatch.category,
             spouseProfile: ruleMatch.profile,
           };
-          rows.push({ tx: categorized, ruleMatch, status: "auto" });
+          rows.push({ tx: categorized, ruleMatch, status: "auto", ignored: false });
         } else {
-          // Check built-in categorizer — if it returned something other than "outros", mark as auto
           const builtinCat = categorizeTransaction(tx.description);
           if (builtinCat !== "outros") {
-            rows.push({ tx, ruleMatch: null, status: "auto" });
+            rows.push({ tx, ruleMatch: null, status: "auto", ignored: false });
           } else {
-            rows.push({ tx, ruleMatch: null, status: "pending" });
+            rows.push({ tx, ruleMatch: null, status: "pending", ignored: false });
           }
         }
       }
@@ -268,12 +271,14 @@ const UploadPage = () => {
   const handleConfirmImport = useCallback(async () => {
     setIsLoading(true);
     setLoadingMsg("Salvando transações...");
-    const txs = reviewRows.map((r) => r.tx);
+    const toImport = reviewRows.filter((r) => !r.ignored && (!onlyCategorized || r.status === "auto"));
+    const txs = toImport.map((r) => r.tx);
     await addTransactions(txs);
     setIsLoading(false);
     setShowReview(false);
     setReviewRows([]);
-  }, [reviewRows, addTransactions]);
+    setOnlyCategorized(false);
+  }, [reviewRows, addTransactions, onlyCategorized]);
 
   // ── Create rule dialog actions ──
   const openCreateRule = (rowIdx: number) => {
@@ -337,11 +342,21 @@ const UploadPage = () => {
     );
   };
 
+  const handleToggleIgnore = (rowIdx: number) => {
+    setReviewRows((prev) =>
+      prev.map((r, i) =>
+        i === rowIdx ? { ...r, ignored: !r.ignored } : r
+      )
+    );
+  };
+
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }, [processFile]);
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) processFile(f); }, [processFile]);
 
-  const pendingCount = reviewRows.filter((r) => r.status === "pending").length;
-  const autoCount = reviewRows.filter((r) => r.status === "auto").length;
+  const pendingCount = reviewRows.filter((r) => r.status === "pending" && !r.ignored).length;
+  const autoCount = reviewRows.filter((r) => r.status === "auto" && !r.ignored).length;
+  const ignoredCount = reviewRows.filter((r) => r.ignored).length;
+  const importableCount = onlyCategorized ? autoCount : (reviewRows.length - ignoredCount);
 
   return (
     <AppLayout>
@@ -382,14 +397,18 @@ const UploadPage = () => {
             className={`glass-card flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border"}`}>
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"><UploadIcon className="h-7 w-7 text-primary" /></div>
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
-            <p className="mb-6 text-sm text-muted-foreground">OFX e CSV suportados</p>
-            <input ref={fileRef} type="file" accept=".ofx,.qfx,.csv,.txt" className="hidden" onChange={handleChange} />
+            <p className="mb-6 text-sm text-muted-foreground">OFX, CSV e PDF suportados</p>
+            <input ref={fileRef} type="file" accept=".ofx,.qfx,.csv,.txt,.pdf" className="hidden" onChange={handleChange} />
             <button onClick={() => fileRef.current?.click()} className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">Selecionar Arquivo</button>
           </motion.div>
 
           {/* Format info */}
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {[{ icon: FileText, label: "OFX / QFX", desc: "Extrato bancário — parsing de STMTTRN" }, { icon: FileSpreadsheet, label: "CSV / TXT", desc: "Mapeamento de colunas personalizável" }].map((item) => (
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              { icon: FileText, label: "OFX / QFX", desc: "Extrato bancário — parsing de STMTTRN" },
+              { icon: FileSpreadsheet, label: "CSV / TXT", desc: "Mapeamento de colunas personalizável" },
+              { icon: FileText, label: "PDF", desc: "Faturas de cartão (em breve)" },
+            ].map((item) => (
               <div key={item.label} className="glass-card flex items-center gap-3 rounded-xl p-4">
                 <item.icon className="h-5 w-5 text-muted-foreground" /><div><p className="text-sm font-semibold">{item.label}</p><p className="text-[11px] text-muted-foreground">{item.desc}</p></div>
               </div>
@@ -476,24 +495,34 @@ const UploadPage = () => {
 
           {/* Transaction list */}
           <div className="glass-card rounded-2xl p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Transações ({reviewRows.length})</h3>
-              <div className="flex gap-2">
-                <button onClick={() => { setShowReview(false); setReviewRows([]); setImportSummary(null); }}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Transações ({reviewRows.length}){ignoredCount > 0 && <span className="text-muted-foreground font-normal"> · {ignoredCount} ignorada(s)</span>}</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={onlyCategorized} onChange={(e) => setOnlyCategorized(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-border accent-primary" />
+                  <span className="text-[11px] text-muted-foreground">Só auto-categorizados</span>
+                </label>
+                <button onClick={() => { setShowReview(false); setReviewRows([]); setImportSummary(null); setOnlyCategorized(false); }}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
                   Cancelar
                 </button>
                 <button onClick={handleConfirmImport}
                   className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
-                  Importar {reviewRows.length} transações
+                  Importar {importableCount} transações
                 </button>
               </div>
             </div>
-            <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+            <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
               {reviewRows.map((row, idx) => (
-                <div key={row.tx.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${row.status === "pending" ? "bg-destructive/5" : "bg-secondary/30"}`}>
+                <div key={row.tx.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-opacity ${row.ignored ? "opacity-40" : ""} ${row.status === "pending" && !row.ignored ? "bg-destructive/5" : "bg-secondary/30"}`}>
+                  {/* Ignore toggle */}
+                  <button onClick={() => handleToggleIgnore(idx)} title={row.ignored ? "Restaurar" : "Ignorar"}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors">
+                    {row.ignored ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  </button>
                   <span className="w-20 shrink-0 text-muted-foreground">{row.tx.date}</span>
-                  <span className="min-w-0 flex-1 truncate" title={row.tx.description}>{row.tx.treatedName || row.tx.description}</span>
+                  <span className={`min-w-0 flex-1 truncate ${row.ignored ? "line-through" : ""}`} title={row.tx.description}>{row.tx.treatedName || row.tx.description}</span>
                   <span className={`w-24 shrink-0 text-right font-mono font-semibold ${row.tx.amount < 0 ? "text-destructive" : "text-primary"}`}>
                     {formatBRL(row.tx.amount)}
                   </span>
@@ -502,8 +531,9 @@ const UploadPage = () => {
                     <select
                       value={row.tx.category}
                       onChange={(e) => handleCategoryChange(idx, e.target.value as TransactionCategory)}
-                      className={`w-full appearance-none rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary ${
-                        row.status === "pending"
+                      disabled={row.ignored}
+                      className={`w-full appearance-none rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
+                        row.status === "pending" && !row.ignored
                           ? "border-destructive/30 bg-destructive/5 text-destructive"
                           : "border-border bg-popover text-foreground"
                       }`}
@@ -515,14 +545,14 @@ const UploadPage = () => {
                     <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                   </div>
                   {/* Create rule button for pending */}
-                  {row.status === "pending" ? (
+                  {row.status === "pending" && !row.ignored ? (
                     <button onClick={() => openCreateRule(idx)} title="Criar regra"
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   ) : (
                     <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-                      <Sparkles className="h-3 w-3 text-primary/50" />
+                      {!row.ignored && <Sparkles className="h-3 w-3 text-primary/50" />}
                     </div>
                   )}
                 </div>
