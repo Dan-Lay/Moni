@@ -20,6 +20,25 @@ const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = Object.en
   ([v, l]) => ({ value: v as RecurrenceType, label: l })
 );
 
+// ── Currency input mask helper ──
+function formatCurrencyInput(raw: string): string {
+  // Strip everything except digits
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = parseInt(digits, 10);
+  const formatted = (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return formatted;
+}
+
+function parseCurrencyInput(masked: string): number {
+  if (!masked) return 0;
+  const cleaned = masked.replace(/\./g, "").replace(",", ".");
+  return parseFloat(cleaned) || 0;
+}
+
 const emptyForm = {
   name: "",
   amount: "",
@@ -27,6 +46,7 @@ const emptyForm = {
   dueDate: new Date().toISOString().split("T")[0],
   recurrence: "mensal" as RecurrenceType,
   spouseProfile: "familia" as SpouseProfile,
+  type: "debito" as "debito" | "credito",
 };
 
 const PlannedEntriesPage = () => {
@@ -46,12 +66,13 @@ const PlannedEntriesPage = () => {
     .reduce((a, e) => a + Math.abs(e.amount), 0);
 
   async function handleAdd() {
-    const amt = parseFloat(form.amount.replace(",", "."));
-    if (!form.name || isNaN(amt)) return;
+    const amt = parseCurrencyInput(form.amount);
+    if (!form.name || amt === 0) return;
+    const signedAmount = form.type === "debito" ? -Math.abs(amt) : Math.abs(amt);
     const entry: PlannedEntry = {
       id: `pe_${Date.now()}`,
       name: form.name,
-      amount: -Math.abs(amt),
+      amount: signedAmount,
       category: form.category,
       dueDate: toISODate(form.dueDate),
       recurrence: form.recurrence,
@@ -100,6 +121,30 @@ const PlannedEntriesPage = () => {
             className="glass-card rounded-2xl p-4 mb-4 overflow-hidden"
           >
             <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Lançamento</h2>
+
+            {/* Débito / Crédito toggle */}
+            <div className="flex items-center gap-1 mb-3 rounded-xl bg-secondary p-0.5 w-fit">
+              {([
+                { value: "debito", label: "Débito", color: "text-destructive" },
+                { value: "credito", label: "Crédito", color: "text-primary" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setForm({ ...form, type: opt.value })}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                    form.type === opt.value
+                      ? opt.value === "debito"
+                        ? "bg-destructive text-destructive-foreground shadow-sm"
+                        : "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <Input
                 placeholder="Nome Lançamento (desc. banco)"
@@ -112,7 +157,11 @@ const PlannedEntriesPage = () => {
                 <Input
                   placeholder="0,00"
                   value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  onChange={(e) => {
+                    const masked = formatCurrencyInput(e.target.value);
+                    setForm({ ...form, amount: masked });
+                  }}
+                  inputMode="numeric"
                   className="h-9 text-sm pl-8 font-mono"
                 />
               </div>
@@ -206,31 +255,40 @@ interface EntryRowProps {
 function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(entry.name);
-  const [editAmount, setEditAmount] = useState(Math.abs(entry.amount).toFixed(2));
+  const [editAmount, setEditAmount] = useState(
+    Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  );
   const [editCat, setEditCat] = useState(entry.category);
   const [editDate, setEditDate] = useState(entry.dueDate);
   const [editProfile, setEditProfile] = useState(entry.spouseProfile);
+  const [editType, setEditType] = useState<"debito" | "credito">(entry.amount >= 0 ? "credito" : "debito");
 
   function startEdit() {
     setEditName(entry.name);
-    setEditAmount(Math.abs(entry.amount).toFixed(2));
+    setEditAmount(
+      Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    );
     setEditCat(entry.category);
     setEditDate(entry.dueDate);
     setEditProfile(entry.spouseProfile);
+    setEditType(entry.amount >= 0 ? "credito" : "debito");
     setIsEditing(true);
   }
 
   async function confirmEdit() {
-    const amt = parseFloat(editAmount.replace(",", "."));
+    const amt = parseCurrencyInput(editAmount);
+    const signedAmt = editType === "debito" ? -Math.abs(amt) : Math.abs(amt);
     await onUpdate(entry.id, {
       name: editName,
-      amount: isNaN(amt) ? entry.amount : -Math.abs(amt),
+      amount: isNaN(amt) || amt === 0 ? entry.amount : signedAmt,
       category: editCat,
       dueDate: toISODate(editDate),
       spouseProfile: editProfile,
     });
     setIsEditing(false);
   }
+
+  const isCredit = entry.amount >= 0;
 
   if (isEditing) {
     return (
@@ -252,9 +310,19 @@ function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* Débito/Crédito mini toggle */}
+            <div className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5">
+              <button onClick={() => setEditType("debito")} className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all", editType === "debito" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>D</button>
+              <button onClick={() => setEditType("credito")} className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all", editType === "credito" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>C</button>
+            </div>
             <div className="relative">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-              <Input className="h-7 w-28 pl-7 text-xs font-mono" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+              <Input
+                className="h-7 w-28 pl-7 text-xs font-mono"
+                value={editAmount}
+                inputMode="numeric"
+                onChange={(e) => setEditAmount(formatCurrencyInput(e.target.value))}
+              />
             </div>
             <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value as any)} className="h-7 w-36 text-xs" />
             <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
@@ -324,13 +392,16 @@ function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
           >
             {entry.spouseProfile === "marido" ? "Marido" : entry.spouseProfile === "esposa" ? "Esposa" : "Família"}
           </Badge>
+          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", isCredit ? "border-primary/40 text-primary" : "border-destructive/40 text-destructive")}>
+            {isCredit ? "Crédito" : "Débito"}
+          </Badge>
         </div>
       </div>
 
       <div className="text-right shrink-0 flex items-center gap-2">
         <div>
-          <p className="font-mono text-sm font-semibold text-destructive">
-            -{Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          <p className={cn("font-mono text-sm font-semibold", isCredit ? "text-primary" : "text-destructive")}>
+            {isCredit ? "+" : "-"}{Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
           {entry.conciliado && entry.realAmount !== undefined && (
             <p className="text-[10px] text-muted-foreground font-mono line-through">
