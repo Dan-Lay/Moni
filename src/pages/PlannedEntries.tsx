@@ -76,7 +76,7 @@ const PlannedEntriesPage = () => {
     <AppLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Contas a Pagar</h1>
+          <h1 className="text-xl font-bold">Lançamentos</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {pending.length} pendente{pending.length !== 1 ? "s" : ""} ·{" "}
             <span className="font-mono text-destructive">

@@ -6,7 +6,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: PieChart, label: "Gastos", path: "/expenses" },
   { icon: ListOrdered, label: "Extrato", path: "/transactions" },
-  { icon: CalendarClock, label: "Contas a Pagar", path: "/planned" },
+  { icon: CalendarClock, label: "Lançamentos", path: "/planned" },
   { icon: Upload, label: "Upload", path: "/upload" },
   { icon: ShoppingBag, label: "Desapego", path: "/desapego" },
   { icon: Settings, label: "Configurações", path: "/settings" },

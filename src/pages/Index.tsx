@@ -6,7 +6,7 @@ import { LiberdadeFinanceira } from "@/components/dashboard/LiberdadeFinanceira"
 import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
 import { ExpensePieChart } from "@/components/dashboard/ExpensePieChart";
 import { DollarDisney } from "@/components/dashboard/DollarDisney";
-import { EfficiencyIndex } from "@/components/dashboard/EfficiencyIndex";
+
 import { TopEstablishments } from "@/components/dashboard/TopEstablishments";
 import { MonthlyComparisonChart } from "@/components/dashboard/MonthlyComparisonChart";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -77,10 +77,9 @@ const Index = () => {
         </div>
 
         {/* Row 5: Footer — 4 small cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <MiguelThermometer />
           <DollarDisney />
-          <EfficiencyIndex />
           <DisneyThermometer />
         </div>
       </div>
