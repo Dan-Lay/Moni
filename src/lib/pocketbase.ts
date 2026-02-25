@@ -80,7 +80,7 @@ export async function fetchAllTransactions(userId: string): Promise<Transaction[
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
-    .eq("user", userId)
+    .eq("user_id", userId)
     .order("date", { ascending: false });
   if (error) throw error;
   return (data || []).map(mapTransaction);
@@ -101,7 +101,7 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
     establishment: tx.establishment,
     spouse_profile: tx.spouseProfile,
     is_additional_card: tx.isAdditionalCard,
-    user: userId,
+    user_id: userId,
   }));
   const { data, error } = await supabase.from("transactions").insert(rows).select();
   if (error) throw error;
@@ -127,7 +127,7 @@ export async function fetchConfig(userId: string): Promise<{ id: string; config:
   const { data, error } = await supabase
     .from("financial_config")
     .select("*")
-    .eq("user", userId)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) throw error;
@@ -144,7 +144,7 @@ export async function fetchConfig(userId: string): Promise<{ id: string; config:
     max_jantares_mes: 2, max_gasto_jantar: 250, aporte_percentual: 15,
     iof_internacional: 4.38, limite_seguranca: 2000,
     max_cinemas_mes: 2, max_gasto_cinema: 60, jantares_usados: 0, cinemas_usados: 0,
-    user: userId,
+    user_id: userId,
   };
   const { data: created, error: createErr } = await supabase.from("financial_config").insert(defaults).select().single();
   if (createErr) throw createErr;
@@ -188,7 +188,7 @@ export async function fetchPlannedEntries(userId: string): Promise<PlannedEntry[
   const { data, error } = await supabase
     .from("planned_entries")
     .select("*")
-    .eq("user", userId)
+    .eq("user_id", userId)
     .order("due_date", { ascending: false });
   if (error) throw error;
   return (data || []).map(mapPlannedEntry);
@@ -204,7 +204,7 @@ export async function createPlannedEntry(entry: PlannedEntry, userId: string): P
     spouse_profile: entry.spouseProfile,
     conciliado: entry.conciliado,
     real_amount: entry.realAmount ?? null,
-    user: userId,
+    user_id: userId,
   }).select().single();
   if (error) throw error;
   return mapPlannedEntry(data);
@@ -231,19 +231,19 @@ export async function deletePlannedEntryRemote(id: string): Promise<void> {
 }
 
 export async function fetchDesapegoItems(userId: string): Promise<DesapegoItem[]> {
-  const { data, error } = await supabase.from("desapego_items").select("*").eq("user", userId);
+  const { data, error } = await supabase.from("desapego_items").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data || []).map(mapDesapegoItem);
 }
 
 export async function saveDesapegoItems(items: DesapegoItem[], userId: string): Promise<void> {
-  await supabase.from("desapego_items").delete().eq("user", userId);
+  await supabase.from("desapego_items").delete().eq("user_id", userId);
   if (items.length === 0) return;
   const rows = items.map((item) => ({
     name: item.name,
     value: item.value,
     sold: item.sold,
-    user: userId,
+    user_id: userId,
   }));
   const { error } = await supabase.from("desapego_items").insert(rows);
   if (error) throw error;

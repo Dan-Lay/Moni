@@ -147,7 +147,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 
     const channel = supabase
       .channel(`moni-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user=eq.${user.id}` }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, (payload) => {
         setData((prev) => {
           const txs = [...prev.transactions];
           if (payload.eventType === "INSERT") {
@@ -166,7 +166,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
           return { ...prev, transactions: txs };
         });
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "planned_entries", filter: `user=eq.${user.id}` }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "planned_entries", filter: `user_id=eq.${user.id}` }, (payload) => {
         setData((prev) => {
           const entries = [...prev.plannedEntries];
           if (payload.eventType === "INSERT") {
@@ -182,7 +182,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
           return { ...prev, plannedEntries: entries };
         });
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "financial_config", filter: `user=eq.${user.id}` }, (payload) => {
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "financial_config", filter: `user_id=eq.${user.id}` }, (payload) => {
         setData((prev) => ({
           ...prev,
           config: realPB.mapFinancialConfig(payload.new),

@@ -63,7 +63,7 @@ export async function loadLayoutFromPB(userId: string): Promise<LayoutItem[] | n
     const { data } = await supabase
       .from("user_preferences")
       .select("*")
-      .eq("user", userId)
+      .eq("user_id", userId)
       .maybeSingle();
     if (!data) return null;
     prefRecordId = data.id;
@@ -83,7 +83,7 @@ export async function saveLayoutToPB(userId: string, layouts: LayoutItem[]): Pro
       await supabase.from("user_preferences").update({ dashboard_layout: layouts }).eq("id", prefRecordId);
     } else {
       const { data } = await supabase.from("user_preferences").insert({
-        user: userId,
+        user_id: userId,
         dashboard_layout: layouts,
       }).select().single();
       if (data) prefRecordId = data.id;

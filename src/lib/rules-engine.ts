@@ -17,14 +17,14 @@ export async function fetchCategorizationRules(userId: string): Promise<Categori
     const { data, error } = await supabase
       .from("categorization_rules")
       .select("*")
-      .eq("user", userId);
+      .eq("user_id", userId);
     if (error) return [];
     return (data || []).map((r) => ({
       id: r.id,
       keyword: (r.keyword || "").toLowerCase(),
       category: (r.category || "outros") as TransactionCategory,
       profile: (r.profile || "familia") as SpouseProfile,
-      userId: r.user || "",
+      userId: r.user_id || "",
     }));
   } catch {
     return [];
@@ -41,7 +41,7 @@ export async function createCategorizationRule(
     keyword: keyword.toLowerCase(),
     category,
     profile,
-    user: userId,
+    user_id: userId,
   }).select().single();
   if (error) throw error;
   return {
@@ -49,7 +49,7 @@ export async function createCategorizationRule(
     keyword: data.keyword,
     category: data.category as TransactionCategory,
     profile: data.profile as SpouseProfile,
-    userId: data.user,
+    userId: data.user_id,
   };
 }
 
