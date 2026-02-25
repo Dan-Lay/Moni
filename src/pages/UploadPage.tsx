@@ -238,18 +238,23 @@ const UploadPage = () => {
     setLoadingMsg("Conciliando com lançamentos previstos...");
     await sleep(0);
 
-    // Reconciliation
+    // Reconciliation – parallel, fire all at once
     const planned = data.plannedEntries ?? [];
-    let reconciledCount = 0;
+    const reconcileJobs: Promise<boolean>[] = [];
     for (const row of rows) {
       const matchId = tryReconcile(row.tx, planned);
       if (matchId) {
-        try {
-          await updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(row.tx.amount) as any });
-          reconciledCount++;
-        } catch {}
+        reconcileJobs.push(
+          updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(row.tx.amount) as any })
+            .then(() => true)
+            .catch(() => false)
+        );
       }
     }
+    const reconcileResults = await Promise.allSettled(reconcileJobs);
+    const reconciledCount = reconcileResults.filter(
+      (r) => r.status === "fulfilled" && r.value === true
+    ).length;
 
     const spouseCount = rows.filter((r) => r.tx.isAdditionalCard).length;
     const totalMiles = rows.reduce((a, r) => a + r.tx.milesGenerated, 0);
@@ -273,11 +278,16 @@ const UploadPage = () => {
     setLoadingMsg("Salvando transações...");
     const toImport = reviewRows.filter((r) => !r.ignored && (!onlyCategorized || r.status === "auto"));
     const txs = toImport.map((r) => r.tx);
-    await addTransactions(txs);
-    setIsLoading(false);
-    setShowReview(false);
-    setReviewRows([]);
-    setOnlyCategorized(false);
+    try {
+      await addTransactions(txs);
+      setShowReview(false);
+      setReviewRows([]);
+      setOnlyCategorized(false);
+    } catch {
+      setError("Erro ao salvar transações. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
   }, [reviewRows, addTransactions, onlyCategorized]);
 
   // ── Create rule dialog actions ──

@@ -94,6 +94,8 @@ export async function fetchAllTransactions(userId: string): Promise<Transaction[
   return (data || []).map(mapTransaction);
 }
 
+const INSERT_CHUNK = 100;
+
 export async function createTransactions(txs: Transaction[], userId: string): Promise<Transaction[]> {
   const rows = txs.map((tx) => ({
     date: tx.date,
@@ -111,9 +113,15 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
     is_additional_card: tx.isAdditionalCard,
     user_id: userId,
   }));
-  const { data, error } = await supabase.from("transactions").insert(rows).select();
-  if (error) throw error;
-  return (data || []).map(mapTransaction);
+
+  const results: Transaction[] = [];
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    const chunk = rows.slice(i, i + INSERT_CHUNK);
+    const { data, error } = await supabase.from("transactions").insert(chunk).select();
+    if (error) throw error;
+    results.push(...(data || []).map(mapTransaction));
+  }
+  return results;
 }
 
 export async function updateTransaction(
