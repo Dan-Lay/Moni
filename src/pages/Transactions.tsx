@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useFinance } from "@/contexts/DataContext";
-import { CATEGORY_LABELS, SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS } from "@/lib/types";
+import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
+import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS } from "@/lib/types";
 import { getPriceAlerts } from "@/lib/storage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,11 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-const CATEGORY_OPTIONS: { value: TransactionCategory | "all"; label: string }[] = [
-  { value: "all", label: "Todas categorias" },
-  ...Object.entries(CATEGORY_LABELS).map(([v, l]) => ({ value: v as TransactionCategory, label: l })),
-];
 
 const AUTHOR_OPTIONS: { value: SpouseProfile | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -49,6 +44,11 @@ interface UnifiedRow {
 
 const Transactions = () => {
   const { data, updateTransaction, updatePlannedEntry } = useFinance();
+  const categoryLabels = useCategoryLabels();
+  const categoryOptions = useMemo(() => [
+    { value: "all" as const, label: "Todas categorias" },
+    ...Object.entries(categoryLabels).map(([v, l]) => ({ value: v as TransactionCategory, label: l })),
+  ], [categoryLabels]);
 
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<TransactionCategory | "all">("all");
@@ -230,7 +230,7 @@ const Transactions = () => {
           <Select value={bulkCat} onValueChange={(v) => setBulkCat(v as TransactionCategory)}>
             <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Nova categoria..." /></SelectTrigger>
             <SelectContent>
-              {Object.entries(CATEGORY_LABELS).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}
+              {Object.entries(categoryLabels).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}
             </SelectContent>
           </Select>
           <button onClick={applyBulkEdit} disabled={!bulkCat || selectedIds.size === 0}
@@ -251,7 +251,7 @@ const Transactions = () => {
             <Filter className="h-3.5 w-3.5 mr-1 text-muted-foreground" /><SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {CATEGORY_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+            {categoryOptions.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
           </SelectContent>
         </Select>
         <Select value={authorFilter} onValueChange={(v) => setAuthorFilter(v as SpouseProfile | "all")}>
@@ -321,7 +321,7 @@ const Transactions = () => {
                       <div className="flex flex-wrap gap-2">
                         <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
                           <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{Object.entries(CATEGORY_LABELS).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}</SelectContent>
+                          <SelectContent>{Object.entries(categoryLabels).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}</SelectContent>
                         </Select>
                         <Select value={editAuthor} onValueChange={(v) => setEditAuthor(v as SpouseProfile)}>
                           <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
@@ -371,7 +371,7 @@ const Transactions = () => {
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <span className="text-[10px] text-muted-foreground">{t.date}</span>
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                            {CATEGORY_LABELS[t.category]}
+                            {categoryLabels[t.category] ?? t.category}
                           </Badge>
                           <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4",
                             t.spouseProfile === "marido" && "border-blue-500/40 text-blue-400",

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useFinance } from "@/contexts/DataContext";
+import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
 import {
-  CATEGORY_LABELS, RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
+  RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
 } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -51,6 +51,7 @@ const emptyForm = {
 
 const PlannedEntriesPage = () => {
   const { data, addPlannedEntry, updatePlannedEntry, deletePlannedEntry } = useFinance();
+  const categoryLabels = useCategoryLabels();
   const entries = [...(data.plannedEntries ?? [])].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
   );
@@ -174,7 +175,7 @@ const PlannedEntriesPage = () => {
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as TransactionCategory })}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                  {Object.entries(categoryLabels).map(([v, l]) => (
                     <SelectItem key={v} value={v}>{l}</SelectItem>
                   ))}
                 </SelectContent>
@@ -213,7 +214,7 @@ const PlannedEntriesPage = () => {
           <div className="space-y-2">
             <AnimatePresence>
               {pending.map((e) => (
-                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
+                <EntryRow key={e.id} entry={e} categoryLabels={categoryLabels} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
               ))}
             </AnimatePresence>
           </div>
@@ -229,7 +230,7 @@ const PlannedEntriesPage = () => {
           <div className="space-y-2 opacity-60">
             <AnimatePresence>
               {conciliated.map((e) => (
-                <EntryRow key={e.id} entry={e} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
+                <EntryRow key={e.id} entry={e} categoryLabels={categoryLabels} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
               ))}
             </AnimatePresence>
           </div>
@@ -247,12 +248,13 @@ const PlannedEntriesPage = () => {
 
 interface EntryRowProps {
   entry: PlannedEntry;
+  categoryLabels: Record<string, string>;
   onToggle: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
 }
 
-function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
+function EntryRow({ entry, categoryLabels, onToggle, onDelete, onUpdate }: EntryRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(entry.name);
   const [editAmount, setEditAmount] = useState(
@@ -328,7 +330,7 @@ function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
             <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
               <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                {Object.entries(categoryLabels).map(([v, l]) => (
                   <SelectItem key={v} value={v}>{l}</SelectItem>
                 ))}
               </SelectContent>
@@ -380,7 +382,7 @@ function EntryRow({ entry, onToggle, onDelete, onUpdate }: EntryRowProps) {
             <CalendarClock className="h-2.5 w-2.5" /> {entry.dueDate}
           </span>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-            {CATEGORY_LABELS[entry.category]}
+            {categoryLabels[entry.category] ?? entry.category}
           </Badge>
           <Badge
             variant="outline"

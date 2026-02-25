@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import {
   AppData, Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
   EfficiencyStats, MonthSummary, EstablishmentRank,
-  SpouseProfile, toISODate,
+  SpouseProfile, toISODate, CATEGORY_LABELS,
 } from "@/lib/types";
 import {
   getCurrentMonthTransactions, efficiencyStats, getMonthSummary,
@@ -304,3 +304,22 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const DataProvider = FinanceProvider;
+
+export const useCategoryLabels = (): Record<string, string> => {
+  const { data } = useFinance();
+  return useMemo(() => {
+    const customCategories = data.config.customCategories ?? [];
+    const hiddenBuiltIn = (data.config.hiddenBuiltInCategories as string[] | undefined) ?? [];
+    const renamedBuiltIn = (data.config.renamedBuiltInCategories as Record<string, string> | undefined) ?? {};
+    const labels: Record<string, string> = {};
+    for (const [key, label] of Object.entries(CATEGORY_LABELS)) {
+      if (!hiddenBuiltIn.includes(key)) {
+        labels[key] = renamedBuiltIn[key] ?? label;
+      }
+    }
+    for (const cat of customCategories) {
+      labels[cat.key] = cat.label;
+    }
+    return labels;
+  }, [data.config]);
+};
