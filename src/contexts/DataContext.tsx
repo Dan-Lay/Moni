@@ -212,9 +212,23 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 
   const updateConfig = useCallback(async (partial: Partial<FinancialConfig>) => {
     if (!configId) return;
-    const updated = await api.updateConfigRemote(configId, partial);
+    const hasCategoryPatch =
+      "customCategories" in partial ||
+      "hiddenBuiltInCategories" in partial ||
+      "renamedBuiltInCategories" in partial;
+    const mergedPartial = hasCategoryPatch
+      ? {
+          ...partial,
+          customCategories: partial.customCategories ?? data.config.customCategories,
+          hiddenBuiltInCategories:
+            partial.hiddenBuiltInCategories ?? data.config.hiddenBuiltInCategories ?? [],
+          renamedBuiltInCategories:
+            partial.renamedBuiltInCategories ?? data.config.renamedBuiltInCategories ?? {},
+        }
+      : partial;
+    const updated = await api.updateConfigRemote(configId, mergedPartial);
     setData((prev) => ({ ...prev, config: updated }));
-  }, [configId, api]);
+  }, [configId, api, data.config]);
 
   const updateDesapego = useCallback(async (items: DesapegoItem[]) => {
     if (!user) return;

@@ -70,7 +70,15 @@ export function mapFinancialConfig(r: Record<string, any>): FinancialConfig {
     limiteSeguranca: r.limite_seguranca ?? 2000,
     maxCinemasMes: r.max_cinemas_mes ?? 2,
     maxGastoCinema: r.max_gasto_cinema ?? 60,
-    customCategories: r.custom_categories ?? [],
+    customCategories: Array.isArray(r.custom_categories)
+      ? r.custom_categories
+      : (r.custom_categories?.items ?? []),
+    hiddenBuiltInCategories: Array.isArray(r.custom_categories)
+      ? []
+      : (r.custom_categories?.hidden ?? []),
+    renamedBuiltInCategories: Array.isArray(r.custom_categories)
+      ? {}
+      : (r.custom_categories?.renamed ?? {}),
   };
 }
 
@@ -169,6 +177,17 @@ export async function updateConfigRemote(configId: string, patch: Partial<Financ
   if (patch.aportePercentual !== undefined) data.aporte_percentual = patch.aportePercentual;
   if (patch.iofInternacional !== undefined) data.iof_internacional = patch.iofInternacional;
   if (patch.limiteSeguranca !== undefined) data.limite_seguranca = patch.limiteSeguranca;
+  if (
+    patch.customCategories !== undefined ||
+    patch.hiddenBuiltInCategories !== undefined ||
+    patch.renamedBuiltInCategories !== undefined
+  ) {
+    data.custom_categories = {
+      items: patch.customCategories ?? [],
+      hidden: patch.hiddenBuiltInCategories ?? [],
+      renamed: patch.renamedBuiltInCategories ?? {},
+    };
+  }
   const { data: row, error } = await supabase.from("financial_config").update(data).eq("id", configId).select().single();
   if (error) throw error;
   return mapFinancialConfig(row);
