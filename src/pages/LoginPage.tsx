@@ -144,7 +144,7 @@ const LoginPage = () => {
           <p className="text-center text-[10px] text-muted-foreground">
             Conectada a{" "}
             <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px]">
-              {isMockMode ? "Demonstração" : "PocketBase"}
+              {isMockMode ? "Demonstração" : "Supabase"}
             </code>
           </p>
         </motion.div>
