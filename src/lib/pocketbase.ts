@@ -9,7 +9,7 @@ import { categoryIdToName, categoryNameToId, ensureCategoryCache } from "./categ
 // PocketBase URL — must be set via VITE_POCKETBASE_URL environment variable
 const PB_URL = import.meta.env.VITE_POCKETBASE_URL;
 if (!PB_URL) {
-  console.error("[FinWar] VITE_POCKETBASE_URL não configurado. Defina esta variável de ambiente com a URL do seu PocketBase.");
+  console.error("[Moni] VITE_POCKETBASE_URL não configurado. Defina esta variável de ambiente com a URL do seu PocketBase.");
 }
 
 export const pb = new PocketBase(PB_URL);

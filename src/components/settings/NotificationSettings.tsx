@@ -22,14 +22,14 @@ const TOGGLES: NotifToggle[] = [
 
 export const NotificationSettings = ({ onBack }: Props) => {
   const [enabled, setEnabled] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem("finwar_notif_prefs");
+    const saved = localStorage.getItem("moni_notif_prefs");
     return saved ? JSON.parse(saved) : { fatura: true, disney: true, planned: false };
   });
 
   const toggle = (id: string) => {
     const next = { ...enabled, [id]: !enabled[id] };
     setEnabled(next);
-    localStorage.setItem("finwar_notif_prefs", JSON.stringify(next));
+    localStorage.setItem("moni_notif_prefs", JSON.stringify(next));
   };
 
   return (
