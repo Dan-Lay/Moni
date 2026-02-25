@@ -1,12 +1,11 @@
 /**
  * Dashboard layout persistence — saves/loads grid layout per user.
- * Uses PocketBase in production, localStorage in Mock Mode.
+ * Uses Supabase in production, localStorage in Mock Mode.
  */
 import type { LayoutItem } from "react-grid-layout";
-import * as realPB from "./pocketbase";
+import { supabase } from "./supabase";
 
 const LAYOUT_STORAGE_KEY = "moni_dashboard_layout";
-const COLLECTION_NAME = "user_preferences";
 
 // ── Default layout ──
 export const DEFAULT_LAYOUT: LayoutItem[] = [
@@ -22,7 +21,7 @@ export const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "top",            x: 0, y: 18, w: 12, h: 5, minW: 6, minH: 4 },
 ];
 
-// ── Ideal "organized" layout — clean symmetrical grid, no content clipping ──
+// ── Ideal "organized" layout ──
 export const IDEAL_LAYOUT: LayoutItem[] = [
   { i: "cashflow",       x: 0,  y: 0,  w: 12, h: 7,  minW: 6, minH: 5 },
   { i: "saldo",          x: 0,  y: 7,  w: 4,  h: 5,  minW: 3, minH: 4 },
@@ -56,14 +55,19 @@ export function clearLayoutStorage(): void {
   localStorage.removeItem(LAYOUT_STORAGE_KEY);
 }
 
-// ── PocketBase helpers ──
+// ── Supabase helpers ──
 let prefRecordId: string | null = null;
 
 export async function loadLayoutFromPB(userId: string): Promise<LayoutItem[] | null> {
   try {
-    const record = await realPB.pb.collection(COLLECTION_NAME).getFirstListItem(`user = "${userId}"`);
-    prefRecordId = record.id;
-    const layout = record["dashboard_layout"];
+    const { data } = await supabase
+      .from("user_preferences")
+      .select("*")
+      .eq("user", userId)
+      .maybeSingle();
+    if (!data) return null;
+    prefRecordId = data.id;
+    const layout = data.dashboard_layout;
     if (layout && Array.isArray(layout) && layout.length > 0) {
       return layout as LayoutItem[];
     }
@@ -76,29 +80,25 @@ export async function loadLayoutFromPB(userId: string): Promise<LayoutItem[] | n
 export async function saveLayoutToPB(userId: string, layouts: LayoutItem[]): Promise<void> {
   try {
     if (prefRecordId) {
-      await realPB.pb.collection(COLLECTION_NAME).update(prefRecordId, {
-        dashboard_layout: layouts,
-      });
+      await supabase.from("user_preferences").update({ dashboard_layout: layouts }).eq("id", prefRecordId);
     } else {
-      const record = await realPB.pb.collection(COLLECTION_NAME).create({
+      const { data } = await supabase.from("user_preferences").insert({
         user: userId,
         dashboard_layout: layouts,
-      });
-      prefRecordId = record.id;
+      }).select().single();
+      if (data) prefRecordId = data.id;
     }
   } catch (err) {
-    console.warn("[Moni] Failed to save layout to PB:", err);
+    console.warn("[Moni] Failed to save layout:", err);
   }
 }
 
 export async function resetLayoutInPB(userId: string): Promise<void> {
   try {
     if (prefRecordId) {
-      await realPB.pb.collection(COLLECTION_NAME).update(prefRecordId, {
-        dashboard_layout: null,
-      });
+      await supabase.from("user_preferences").update({ dashboard_layout: null }).eq("id", prefRecordId);
     }
   } catch (err) {
-    console.warn("[Moni] Failed to reset layout in PB:", err);
+    console.warn("[Moni] Failed to reset layout:", err);
   }
 }

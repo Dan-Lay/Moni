@@ -1,117 +1,99 @@
-import PocketBase, { RecordModel } from "pocketbase";
+import { supabase } from "./supabase";
 import {
   Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
   TransactionSource, TransactionCategory, SpouseProfile, RecurrenceType,
   toISODate, toBRL, toMiles,
 } from "./types";
-import { categoryIdToName, categoryNameToId, ensureCategoryCache } from "./category-cache";
 
-// PocketBase URL — must be set via VITE_POCKETBASE_URL environment variable
-const PB_URL = import.meta.env.VITE_POCKETBASE_URL;
-if (!PB_URL) {
-  console.error("[Moni] VITE_POCKETBASE_URL não configurado. Defina esta variável de ambiente com a URL do seu PocketBase.");
-}
+// ── Type mappers: Supabase row → App types ──
 
-export const pb = new PocketBase(PB_URL);
-
-// Disable auto-cancellation so parallel requests work
-pb.autoCancellation(false);
-
-// ── Auto-healing: intercept 400/403 errors, invalidate cache & retry once ──
-import { invalidateCategoryCache } from "./category-cache";
-
-async function withAutoHeal<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err: any) {
-    const status = err?.status ?? err?.response?.status;
-    if (status === 400 || status === 403) {
-      console.warn(`[auto-heal] Got ${status}, invalidating category cache and retrying…`);
-      invalidateCategoryCache();
-      await ensureCategoryCache();
-      return await fn();
-    }
-    throw err;
-  }
-}
-// ── Type mappers: PocketBase record → App types ──
-
-export function mapTransaction(r: RecordModel): Transaction {
+export function mapTransaction(r: Record<string, any>): Transaction {
   return {
     id: r.id,
-    date: toISODate(r["date"]?.split("T")[0] || r["date"]),
-    description: r["description"] || "",
-    treatedName: r["treated_name"] || undefined,
-    amount: toBRL(r["amount"] || 0),
-    source: (r["source"] || "unknown") as TransactionSource,
-    category: (categoryIdToName(r["category"] || "outros")) as TransactionCategory,
-    milesGenerated: toMiles(r["miles_generated"] || 0),
-    isInefficient: !!r["is_inefficient"],
-    isInternational: !!r["is_international"],
-    iofAmount: toBRL(r["iof_amount"] || 0),
-    establishment: r["establishment"] || "",
-    spouseProfile: (r["spouse_profile"] || "familia") as SpouseProfile,
-    isAdditionalCard: !!r["is_additional_card"],
+    date: toISODate(r.date?.split("T")[0] || r.date),
+    description: r.description || "",
+    treatedName: r.treated_name || undefined,
+    amount: toBRL(r.amount || 0),
+    source: (r.source || "unknown") as TransactionSource,
+    category: (r.category || "outros") as TransactionCategory,
+    milesGenerated: toMiles(r.miles_generated || 0),
+    isInefficient: !!r.is_inefficient,
+    isInternational: !!r.is_international,
+    iofAmount: toBRL(r.iof_amount || 0),
+    establishment: r.establishment || "",
+    spouseProfile: (r.spouse_profile || "familia") as SpouseProfile,
+    isAdditionalCard: !!r.is_additional_card,
   };
 }
 
-export function mapPlannedEntry(r: RecordModel): PlannedEntry {
+export function mapPlannedEntry(r: Record<string, any>): PlannedEntry {
   return {
     id: r.id,
-    name: r["name"] || "",
-    amount: r["amount"] || 0,
-    category: (categoryIdToName(r["category"] || "outros")) as TransactionCategory,
-    dueDate: toISODate(r["due_date"]?.split("T")[0] || r["due_date"]),
-    recurrence: (r["recurrence"] || "unico") as RecurrenceType,
-    spouseProfile: (r["spouse_profile"] || "familia") as SpouseProfile,
-    conciliado: !!r["conciliado"],
-    realAmount: r["real_amount"] ?? undefined,
-    createdAt: toISODate(r["created"]?.split("T")[0] || new Date().toISOString().split("T")[0]),
+    name: r.name || "",
+    amount: r.amount || 0,
+    category: (r.category || "outros") as TransactionCategory,
+    dueDate: toISODate(r.due_date?.split("T")[0] || r.due_date),
+    recurrence: (r.recurrence || "unico") as RecurrenceType,
+    spouseProfile: (r.spouse_profile || "familia") as SpouseProfile,
+    conciliado: !!r.conciliado,
+    realAmount: r.real_amount ?? undefined,
+    createdAt: toISODate(r.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]),
   };
 }
 
-export function mapDesapegoItem(r: RecordModel): DesapegoItem {
+export function mapDesapegoItem(r: Record<string, any>): DesapegoItem {
   return {
-    id: Number(r.id) || 0, // PB uses string IDs; we keep numeric for compat
-    name: r["name"] || "",
-    value: r["value"] || 0,
-    sold: !!r["sold"],
+    id: r.id,
+    name: r.name || "",
+    value: r.value || 0,
+    sold: !!r.sold,
   };
 }
 
-export function mapFinancialConfig(r: RecordModel): FinancialConfig {
+export function mapFinancialConfig(r: Record<string, any>): FinancialConfig {
   return {
-    salarioLiquido: r["salario_liquido"] ?? 12000,
-    milhasAtuais: r["milhas_atuais"] ?? 50000,
-    metaDisney: r["meta_disney"] ?? 600000,
-    cotacaoDolar: r["cotacao_dolar"] ?? 5.0,
-    reservaUSD: r["reserva_usd"] ?? 1200,
-    metaUSD: r["meta_usd"] ?? 8000,
-    cotacaoEuro: r["cotacao_euro"] ?? 5.65,
-    reservaEUR: r["reserva_eur"] ?? 500,
-    metaEUR: r["meta_eur"] ?? 6000,
-    cotacaoMediaDCA: r["cotacao_media_dca"] ?? 5.42,
-    cotacaoMediaDCAEUR: r["cotacao_media_dca_eur"] ?? 5.80,
-    maxJantaresMes: r["max_jantares_mes"] ?? 2,
-    maxGastoJantar: r["max_gasto_jantar"] ?? 250,
-    aportePercentual: r["aporte_percentual"] ?? 15,
-    iofInternacional: r["iof_internacional"] ?? 4.38,
-    limiteSeguranca: r["limite_seguranca"] ?? 2000,
-    maxCinemasMes: r["max_cinemas_mes"] ?? 2,
-    maxGastoCinema: r["max_gasto_cinema"] ?? 60,
-    customCategories: r["custom_categories"] ?? [],
+    salarioLiquido: r.salario_liquido ?? 12000,
+    milhasAtuais: r.milhas_atuais ?? 50000,
+    metaDisney: r.meta_disney ?? 600000,
+    cotacaoDolar: r.cotacao_dolar ?? 5.0,
+    reservaUSD: r.reserva_usd ?? 1200,
+    metaUSD: r.meta_usd ?? 8000,
+    cotacaoEuro: r.cotacao_euro ?? 5.65,
+    reservaEUR: r.reserva_eur ?? 500,
+    metaEUR: r.meta_eur ?? 6000,
+    cotacaoMediaDCA: r.cotacao_media_dca ?? 5.42,
+    cotacaoMediaDCAEUR: r.cotacao_media_dca_eur ?? 5.80,
+    maxJantaresMes: r.max_jantares_mes ?? 2,
+    maxGastoJantar: r.max_gasto_jantar ?? 250,
+    aportePercentual: r.aporte_percentual ?? 15,
+    iofInternacional: r.iof_internacional ?? 4.38,
+    limiteSeguranca: r.limite_seguranca ?? 2000,
+    maxCinemasMes: r.max_cinemas_mes ?? 2,
+    maxGastoCinema: r.max_gasto_cinema ?? 60,
+    customCategories: r.custom_categories ?? [],
   };
 }
 
-// ── Reverse mappers: App types → PocketBase record data ──
+// ── CRUD API functions ──
 
-export function txToRecord(tx: Transaction, userId: string): Record<string, unknown> {
-  return {
+export async function fetchAllTransactions(userId: string): Promise<Transaction[]> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("user", userId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapTransaction);
+}
+
+export async function createTransactions(txs: Transaction[], userId: string): Promise<Transaction[]> {
+  const rows = txs.map((tx) => ({
     date: tx.date,
     description: tx.description,
+    treated_name: tx.treatedName ?? null,
     amount: tx.amount,
     source: tx.source,
-    category: categoryNameToId(tx.category),
+    category: tx.category,
     miles_generated: tx.milesGenerated,
     is_inefficient: tx.isInefficient,
     is_international: tx.isInternational,
@@ -120,109 +102,53 @@ export function txToRecord(tx: Transaction, userId: string): Record<string, unkn
     spouse_profile: tx.spouseProfile,
     is_additional_card: tx.isAdditionalCard,
     user: userId,
-  };
-}
-
-export function plannedToRecord(e: PlannedEntry, userId: string): Record<string, unknown> {
-  return {
-    name: e.name,
-    amount: e.amount,
-    category: categoryNameToId(e.category),
-    due_date: e.dueDate,
-    recurrence: e.recurrence,
-    spouse_profile: e.spouseProfile,
-    conciliado: e.conciliado,
-    real_amount: e.realAmount ?? null,
-    user: userId,
-  };
-}
-
-export function desapegoToRecord(item: DesapegoItem, userId: string): Record<string, unknown> {
-  return {
-    name: item.name,
-    value: item.value,
-    sold: item.sold,
-    user: userId,
-  };
-}
-
-export function configToRecord(cfg: Partial<FinancialConfig>, userId: string): Record<string, unknown> {
-  const r: Record<string, unknown> = { user: userId };
-  if (cfg.salarioLiquido !== undefined) r.salario_liquido = cfg.salarioLiquido;
-  if (cfg.milhasAtuais !== undefined) r.milhas_atuais = cfg.milhasAtuais;
-  if (cfg.metaDisney !== undefined) r.meta_disney = cfg.metaDisney;
-  if (cfg.cotacaoDolar !== undefined) r.cotacao_dolar = cfg.cotacaoDolar;
-  if (cfg.reservaUSD !== undefined) r.reserva_usd = cfg.reservaUSD;
-  if (cfg.metaUSD !== undefined) r.meta_usd = cfg.metaUSD;
-  if (cfg.cotacaoEuro !== undefined) r.cotacao_euro = cfg.cotacaoEuro;
-  if (cfg.reservaEUR !== undefined) r.reserva_eur = cfg.reservaEUR;
-  if (cfg.metaEUR !== undefined) r.meta_eur = cfg.metaEUR;
-  if (cfg.cotacaoMediaDCA !== undefined) r.cotacao_media_dca = cfg.cotacaoMediaDCA;
-  if (cfg.cotacaoMediaDCAEUR !== undefined) r.cotacao_media_dca_eur = cfg.cotacaoMediaDCAEUR;
-  if (cfg.maxJantaresMes !== undefined) r.max_jantares_mes = cfg.maxJantaresMes;
-  if (cfg.maxGastoJantar !== undefined) r.max_gasto_jantar = cfg.maxGastoJantar;
-  if (cfg.aportePercentual !== undefined) r.aporte_percentual = cfg.aportePercentual;
-  if (cfg.iofInternacional !== undefined) r.iof_internacional = cfg.iofInternacional;
-  if (cfg.limiteSeguranca !== undefined) r.limite_seguranca = cfg.limiteSeguranca;
-  return r;
-}
-
-// ── CRUD API functions ──
-
-export async function fetchAllTransactions(userId: string): Promise<Transaction[]> {
-  await ensureCategoryCache();
-  const records = await pb.collection("transactions").getFullList({
-    filter: `user = "${userId}"`,
-    sort: "-date",
-  });
-  return records.map(mapTransaction);
-}
-
-export async function createTransactions(txs: Transaction[], userId: string): Promise<Transaction[]> {
-  return withAutoHeal(async () => {
-    const created: Transaction[] = [];
-    for (const tx of txs) {
-      const r = await pb.collection("transactions").create(txToRecord(tx, userId));
-      created.push(mapTransaction(r));
-    }
-    return created;
-  });
+  }));
+  const { data, error } = await supabase.from("transactions").insert(rows).select();
+  if (error) throw error;
+  return (data || []).map(mapTransaction);
 }
 
 export async function updateTransaction(
   id: string,
   patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
 ): Promise<Transaction> {
-  return withAutoHeal(async () => {
-    const data: Record<string, unknown> = {};
-    if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
-    if (patch.amount !== undefined) data.amount = patch.amount;
-    if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
-    if (patch.description !== undefined) data.description = patch.description;
-    if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
-    const r = await pb.collection("transactions").update(id, data);
-    return mapTransaction(r);
-  });
+  const data: Record<string, unknown> = {};
+  if (patch.category !== undefined) data.category = patch.category;
+  if (patch.amount !== undefined) data.amount = patch.amount;
+  if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
+  if (patch.description !== undefined) data.description = patch.description;
+  if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
+  const { data: row, error } = await supabase.from("transactions").update(data).eq("id", id).select().single();
+  if (error) throw error;
+  return mapTransaction(row);
 }
 
 export async function fetchConfig(userId: string): Promise<{ id: string; config: FinancialConfig; jantaresUsados: number; cinemasUsados: number }> {
-  try {
-    const r = await pb.collection("financial_config").getFirstListItem(`user = "${userId}"`);
-    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: r["jantares_usados"] ?? 0, cinemasUsados: r["cinemas_usados"] ?? 0 };
-  } catch {
-    // Create default config for new users
-    const defaultCfg = configToRecord({
-      salarioLiquido: 12000, milhasAtuais: 50000, metaDisney: 600000,
-      cotacaoDolar: 5.0, reservaUSD: 1200, metaUSD: 8000,
-      cotacaoEuro: 5.65, reservaEUR: 500, metaEUR: 6000,
-      cotacaoMediaDCA: 5.42, cotacaoMediaDCAEUR: 5.80,
-      maxJantaresMes: 2, maxGastoJantar: 250, aportePercentual: 15,
-      iofInternacional: 4.38, limiteSeguranca: 2000,
-      maxCinemasMes: 2, maxGastoCinema: 60, customCategories: [],
-    }, userId);
-    const r = await pb.collection("financial_config").create(defaultCfg);
-    return { id: r.id, config: mapFinancialConfig(r), jantaresUsados: 0, cinemasUsados: 0 };
+  const { data, error } = await supabase
+    .from("financial_config")
+    .select("*")
+    .eq("user", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (data) {
+    return { id: data.id, config: mapFinancialConfig(data), jantaresUsados: data.jantares_usados ?? 0, cinemasUsados: data.cinemas_usados ?? 0 };
   }
+
+  const defaults = {
+    salario_liquido: 12000, milhas_atuais: 50000, meta_disney: 600000,
+    cotacao_dolar: 5.0, reserva_usd: 1200, meta_usd: 8000,
+    cotacao_euro: 5.65, reserva_eur: 500, meta_eur: 6000,
+    cotacao_media_dca: 5.42, cotacao_media_dca_eur: 5.80,
+    max_jantares_mes: 2, max_gasto_jantar: 250, aporte_percentual: 15,
+    iof_internacional: 4.38, limite_seguranca: 2000,
+    max_cinemas_mes: 2, max_gasto_cinema: 60, jantares_usados: 0, cinemas_usados: 0,
+    user: userId,
+  };
+  const { data: created, error: createErr } = await supabase.from("financial_config").insert(defaults).select().single();
+  if (createErr) throw createErr;
+  return { id: created.id, config: mapFinancialConfig(created), jantaresUsados: 0, cinemasUsados: 0 };
 }
 
 export async function updateConfigRemote(configId: string, patch: Partial<FinancialConfig>): Promise<FinancialConfig> {
@@ -243,68 +169,82 @@ export async function updateConfigRemote(configId: string, patch: Partial<Financ
   if (patch.aportePercentual !== undefined) data.aporte_percentual = patch.aportePercentual;
   if (patch.iofInternacional !== undefined) data.iof_internacional = patch.iofInternacional;
   if (patch.limiteSeguranca !== undefined) data.limite_seguranca = patch.limiteSeguranca;
-  const r = await pb.collection("financial_config").update(configId, data);
-  return mapFinancialConfig(r);
+  const { data: row, error } = await supabase.from("financial_config").update(data).eq("id", configId).select().single();
+  if (error) throw error;
+  return mapFinancialConfig(row);
 }
 
 export async function updateJantaresRemote(configId: string, count: number): Promise<void> {
-  await pb.collection("financial_config").update(configId, { jantares_usados: count });
+  const { error } = await supabase.from("financial_config").update({ jantares_usados: count }).eq("id", configId);
+  if (error) throw error;
 }
 
 export async function updateCinemasRemote(configId: string, count: number): Promise<void> {
-  await pb.collection("financial_config").update(configId, { cinemas_usados: count });
+  const { error } = await supabase.from("financial_config").update({ cinemas_usados: count }).eq("id", configId);
+  if (error) throw error;
 }
 
 export async function fetchPlannedEntries(userId: string): Promise<PlannedEntry[]> {
-  await ensureCategoryCache();
-  const records = await pb.collection("planned_entries").getFullList({
-    filter: `user = "${userId}"`,
-    sort: "-due_date",
-  });
-  return records.map(mapPlannedEntry);
+  const { data, error } = await supabase
+    .from("planned_entries")
+    .select("*")
+    .eq("user", userId)
+    .order("due_date", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapPlannedEntry);
 }
 
 export async function createPlannedEntry(entry: PlannedEntry, userId: string): Promise<PlannedEntry> {
-  return withAutoHeal(async () => {
-    const r = await pb.collection("planned_entries").create(plannedToRecord(entry, userId));
-    return mapPlannedEntry(r);
-  });
+  const { data, error } = await supabase.from("planned_entries").insert({
+    name: entry.name,
+    amount: entry.amount,
+    category: entry.category,
+    due_date: entry.dueDate,
+    recurrence: entry.recurrence,
+    spouse_profile: entry.spouseProfile,
+    conciliado: entry.conciliado,
+    real_amount: entry.realAmount ?? null,
+    user: userId,
+  }).select().single();
+  if (error) throw error;
+  return mapPlannedEntry(data);
 }
 
 export async function updatePlannedEntryRemote(id: string, patch: Partial<PlannedEntry>): Promise<PlannedEntry> {
-  return withAutoHeal(async () => {
-    const data: Record<string, unknown> = {};
-    if (patch.name !== undefined) data.name = patch.name;
-    if (patch.amount !== undefined) data.amount = patch.amount;
-    if (patch.category !== undefined) data.category = categoryNameToId(patch.category);
-    if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
-    if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
-    if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
-    if (patch.conciliado !== undefined) data.conciliado = patch.conciliado;
-    if (patch.realAmount !== undefined) data.real_amount = patch.realAmount;
-    const r = await pb.collection("planned_entries").update(id, data);
-    return mapPlannedEntry(r);
-  });
+  const data: Record<string, unknown> = {};
+  if (patch.name !== undefined) data.name = patch.name;
+  if (patch.amount !== undefined) data.amount = patch.amount;
+  if (patch.category !== undefined) data.category = patch.category;
+  if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
+  if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
+  if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
+  if (patch.conciliado !== undefined) data.conciliado = patch.conciliado;
+  if (patch.realAmount !== undefined) data.real_amount = patch.realAmount;
+  const { data: row, error } = await supabase.from("planned_entries").update(data).eq("id", id).select().single();
+  if (error) throw error;
+  return mapPlannedEntry(row);
 }
 
 export async function deletePlannedEntryRemote(id: string): Promise<void> {
-  await pb.collection("planned_entries").delete(id);
+  const { error } = await supabase.from("planned_entries").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function fetchDesapegoItems(userId: string): Promise<DesapegoItem[]> {
-  const records = await pb.collection("desapego_items").getFullList({
-    filter: `user = "${userId}"`,
-  });
-  return records.map(mapDesapegoItem);
+  const { data, error } = await supabase.from("desapego_items").select("*").eq("user", userId);
+  if (error) throw error;
+  return (data || []).map(mapDesapegoItem);
 }
 
 export async function saveDesapegoItems(items: DesapegoItem[], userId: string): Promise<void> {
-  // Simple strategy: delete all and recreate
-  const existing = await pb.collection("desapego_items").getFullList({ filter: `user = "${userId}"` });
-  for (const r of existing) {
-    await pb.collection("desapego_items").delete(r.id);
-  }
-  for (const item of items) {
-    await pb.collection("desapego_items").create(desapegoToRecord(item, userId));
-  }
+  await supabase.from("desapego_items").delete().eq("user", userId);
+  if (items.length === 0) return;
+  const rows = items.map((item) => ({
+    name: item.name,
+    value: item.value,
+    sold: item.sold,
+    user: userId,
+  }));
+  const { error } = await supabase.from("desapego_items").insert(rows);
+  if (error) throw error;
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { pb } from "@/lib/pocketbase";
+import { supabase } from "@/lib/supabase";
 import { mockUser } from "@/lib/mock-pocketbase";
 
 export interface UserProfile {
@@ -9,6 +9,8 @@ export interface UserProfile {
   avatarUrl: string;
   defaultProfile: "marido" | "esposa" | "todos";
   mfaEnabled: boolean;
+  isAdmin: boolean;
+  familyId: string | null;
 }
 
 interface AuthContextType {
@@ -30,108 +32,111 @@ export const useAuth = () => {
   return ctx;
 };
 
-function pbUserToProfile(model: any): UserProfile {
+async function fetchProfile(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
   return {
-    id: model.id,
-    name: model.name || model.username || "",
-    email: model.email || "",
-    avatarUrl: model.avatar_url || "",
-    defaultProfile: model.default_profile || "todos",
-    mfaEnabled: !!model.mfa_enabled,
+    id: data.id,
+    name: data.name || "",
+    email: data.email || "",
+    avatarUrl: data.avatar_url || "",
+    defaultProfile: data.default_profile || "todos",
+    mfaEnabled: !!data.mfa_enabled,
+    isAdmin: !!data.is_admin,
+    familyId: data.family_id || null,
   };
 }
 
-// Check if PocketBase is reachable
-async function checkPBHealth(): Promise<boolean> {
-  try {
-    const url = import.meta.env.VITE_POCKETBASE_URL || "http://100.82.134.109:8090";
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-    const res = await fetch(`${url}/api/health`, { signal: controller.signal });
-    clearTimeout(timeout);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+const isMockConfigured = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMockMode, setIsMockMode] = useState(false);
+  const [isMockMode] = useState(isMockConfigured);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      // First check if PB auth store has a valid session
-      if (pb.authStore.isValid && pb.authStore.record) {
-        if (!cancelled) {
-          setUser(pbUserToProfile(pb.authStore.record));
-          setIsMockMode(false);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      // Check if PB is reachable
-      const healthy = await checkPBHealth();
-      if (!cancelled) {
-        if (!healthy) {
-          console.warn("⚠️ PocketBase unreachable — entering MOCK MODE");
-          setIsMockMode(true);
-          // Don't auto-login in mock mode; let user click login
-        }
-        setIsLoading(false);
-      }
+    if (isMockMode) {
+      console.warn("⚠️ Supabase não configurado — entrando em MOCK MODE");
+      setIsLoading(false);
+      return;
     }
 
-    init();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setUser(profile ?? {
+          id: session.user.id,
+          name: session.user.email?.split("@")[0] || "",
+          email: session.user.email || "",
+          avatarUrl: "",
+          defaultProfile: "todos",
+          mfaEnabled: false,
+          isAdmin: false,
+          familyId: null,
+        });
+      }
+      setIsLoading(false);
+    });
 
-    // Listen for auth store changes
-    const unsub = pb.authStore.onChange((_token, record) => {
-      if (record) {
-        setUser(pbUserToProfile(record));
-        setIsMockMode(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setUser(profile ?? {
+          id: session.user.id,
+          name: session.user.email?.split("@")[0] || "",
+          email: session.user.email || "",
+          avatarUrl: "",
+          defaultProfile: "todos",
+          mfaEnabled: false,
+          isAdmin: false,
+          familyId: null,
+        });
       } else {
         setUser(null);
       }
     });
 
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, []);
+    return () => subscription.unsubscribe();
+  }, [isMockMode]);
 
   const isAuthenticated = !!user;
 
   const login = useCallback(async (email: string, password: string) => {
     if (isMockMode) {
-      // Mock login — accept any credentials
-      setUser({ ...mockUser, email });
+      setUser({ ...mockUser, email, isAdmin: email === "contato.dan@gmail.com", familyId: null });
       return;
     }
-    const authData = await pb.collection("users").authWithPassword(email, password);
-    setUser(pbUserToProfile(authData.record));
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   }, [isMockMode]);
 
   const register = useCallback(async (email: string, password: string, name: string) => {
     if (isMockMode) {
-      setUser({ ...mockUser, email, name });
+      setUser({ ...mockUser, email, name, isAdmin: false, familyId: null });
       return;
     }
-    await pb.collection("users").create({
-      email, password, passwordConfirm: password, name, default_profile: "todos",
-    });
-    const authData = await pb.collection("users").authWithPassword(email, password);
-    setUser(pbUserToProfile(authData.record));
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        name,
+        email,
+        default_profile: "todos",
+        is_admin: false,
+      });
+    }
   }, [isMockMode]);
 
   const logout = useCallback(() => {
-    pb.authStore.clear();
+    if (isMockMode) { setUser(null); return; }
+    supabase.auth.signOut();
     setUser(null);
-  }, []);
+  }, [isMockMode]);
 
   const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {
     if (!user) return;
@@ -144,8 +149,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (patch.avatarUrl !== undefined) data.avatar_url = patch.avatarUrl;
     if (patch.defaultProfile !== undefined) data.default_profile = patch.defaultProfile;
     if (patch.mfaEnabled !== undefined) data.mfa_enabled = patch.mfaEnabled;
-    const updated = await pb.collection("users").update(user.id, data);
-    setUser(pbUserToProfile(updated));
+    await supabase.from("profiles").update(data).eq("id", user.id);
+    setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, [user, isMockMode]);
 
   return (

@@ -1,8 +1,7 @@
 /**
  * Categorization Rules Engine — fetches rules once, matches in-memory
- * Optimized for low-end hardware (single fetch, array scan)
  */
-import { pb } from "./pocketbase";
+import { supabase } from "./supabase";
 import { TransactionCategory, SpouseProfile } from "./types";
 
 export interface CategorizationRule {
@@ -13,48 +12,47 @@ export interface CategorizationRule {
   userId: string;
 }
 
-// ── Fetch all rules for user (single query, cached in caller) ──
 export async function fetchCategorizationRules(userId: string): Promise<CategorizationRule[]> {
   try {
-    const records = await pb.collection("categorization_rules").getFullList({
-      filter: `user = "${userId}"`,
-    });
-    return records.map((r) => ({
+    const { data, error } = await supabase
+      .from("categorization_rules")
+      .select("*")
+      .eq("user", userId);
+    if (error) return [];
+    return (data || []).map((r) => ({
       id: r.id,
-      keyword: (r["keyword"] || "").toLowerCase(),
-      category: (r["category"] || "outros") as TransactionCategory,
-      profile: (r["profile"] || "familia") as SpouseProfile,
-      userId: r["user"] || "",
+      keyword: (r.keyword || "").toLowerCase(),
+      category: (r.category || "outros") as TransactionCategory,
+      profile: (r.profile || "familia") as SpouseProfile,
+      userId: r.user || "",
     }));
   } catch {
-    // Collection might not exist yet — return empty
     return [];
   }
 }
 
-// ── Create a new rule in PocketBase ──
 export async function createCategorizationRule(
   keyword: string,
   category: TransactionCategory,
   profile: SpouseProfile,
   userId: string
 ): Promise<CategorizationRule> {
-  const r = await pb.collection("categorization_rules").create({
+  const { data, error } = await supabase.from("categorization_rules").insert({
     keyword: keyword.toLowerCase(),
     category,
     profile,
     user: userId,
-  });
+  }).select().single();
+  if (error) throw error;
   return {
-    id: r.id,
-    keyword: r["keyword"],
-    category: r["category"] as TransactionCategory,
-    profile: r["profile"] as SpouseProfile,
-    userId: r["user"],
+    id: data.id,
+    keyword: data.keyword,
+    category: data.category as TransactionCategory,
+    profile: data.profile as SpouseProfile,
+    userId: data.user,
   };
 }
 
-// ── Match a description against all rules (case-insensitive contains) ──
 export function matchRule(
   description: string,
   rules: CategorizationRule[]

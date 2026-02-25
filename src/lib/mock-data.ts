@@ -151,6 +151,8 @@ export const MOCK_USER = {
   avatarUrl: "",
   defaultProfile: "todos" as const,
   mfaEnabled: false,
+  isAdmin: true,
+  familyId: null as string | null,
 };
 
 export const MOCK_JANTARES_USADOS = 1;

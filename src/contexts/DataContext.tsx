@@ -11,6 +11,7 @@ import {
 } from "@/lib/storage";
 import * as realPB from "@/lib/pocketbase";
 import * as mockPB from "@/lib/mock-pocketbase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
 
 // ── Computed finance state ──
@@ -55,7 +56,6 @@ export const useFinance = () => {
   return ctx;
 };
 
-// Keep backward compat
 export const useAppData = useFinance;
 
 const DEFAULT_CONFIG: FinancialConfig = {
@@ -103,10 +103,8 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileFilter, setProfileFilter] = useState<ProfileFilter>("todos");
 
-  // Pick the right API module based on mock mode
   const api = isMockMode ? mockPB : realPB;
 
-  // Load all data
   const loadData = useCallback(async () => {
     if (!user) {
       setData(getEmptyData());
@@ -143,74 +141,59 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, [loadData]);
 
-  // ── Realtime subscriptions (only for real PB) ──
+  // ── Supabase Realtime subscriptions ──
   useEffect(() => {
     if (!user || isMockMode) return;
 
-    const unsubFns: (() => void)[] = [];
-    const pb = realPB.pb;
-
-    pb.collection("transactions").subscribe("*", (e) => {
-      setData((prev) => {
-        const txs = [...prev.transactions];
-        if (e.action === "create") {
-          const newTx = realPB.mapTransaction(e.record);
-          if (!txs.find((t) => t.id === newTx.id)) {
-            txs.push(newTx);
-            txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const channel = supabase
+      .channel(`moni-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user=eq.${user.id}` }, (payload) => {
+        setData((prev) => {
+          const txs = [...prev.transactions];
+          if (payload.eventType === "INSERT") {
+            const newTx = realPB.mapTransaction(payload.new);
+            if (!txs.find((t) => t.id === newTx.id)) {
+              txs.push(newTx);
+              txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const idx = txs.findIndex((t) => t.id === payload.new.id);
+            if (idx >= 0) txs[idx] = realPB.mapTransaction(payload.new);
+          } else if (payload.eventType === "DELETE") {
+            const idx = txs.findIndex((t) => t.id === payload.old.id);
+            if (idx >= 0) txs.splice(idx, 1);
           }
-        } else if (e.action === "update") {
-          const idx = txs.findIndex((t) => t.id === e.record.id);
-          if (idx >= 0) txs[idx] = realPB.mapTransaction(e.record);
-        } else if (e.action === "delete") {
-          const idx = txs.findIndex((t) => t.id === e.record.id);
-          if (idx >= 0) txs.splice(idx, 1);
-        }
-        return { ...prev, transactions: txs };
-      });
-    }).then((unsub) => unsubFns.push(unsub));
-
-    pb.collection("planned_entries").subscribe("*", (e) => {
-      setData((prev) => {
-        const entries = [...prev.plannedEntries];
-        if (e.action === "create") {
-          const newE = realPB.mapPlannedEntry(e.record);
-          if (!entries.find((x) => x.id === newE.id)) entries.push(newE);
-        } else if (e.action === "update") {
-          const idx = entries.findIndex((x) => x.id === e.record.id);
-          if (idx >= 0) entries[idx] = realPB.mapPlannedEntry(e.record);
-        } else if (e.action === "delete") {
-          const idx = entries.findIndex((x) => x.id === e.record.id);
-          if (idx >= 0) entries.splice(idx, 1);
-        }
-        return { ...prev, plannedEntries: entries };
-      });
-    }).then((unsub) => unsubFns.push(unsub));
-
-    pb.collection("financial_config").subscribe("*", (e) => {
-      if (e.action === "update") {
+          return { ...prev, transactions: txs };
+        });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "planned_entries", filter: `user=eq.${user.id}` }, (payload) => {
+        setData((prev) => {
+          const entries = [...prev.plannedEntries];
+          if (payload.eventType === "INSERT") {
+            const newE = realPB.mapPlannedEntry(payload.new);
+            if (!entries.find((x) => x.id === newE.id)) entries.push(newE);
+          } else if (payload.eventType === "UPDATE") {
+            const idx = entries.findIndex((x) => x.id === payload.new.id);
+            if (idx >= 0) entries[idx] = realPB.mapPlannedEntry(payload.new);
+          } else if (payload.eventType === "DELETE") {
+            const idx = entries.findIndex((x) => x.id === payload.old.id);
+            if (idx >= 0) entries.splice(idx, 1);
+          }
+          return { ...prev, plannedEntries: entries };
+        });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "financial_config", filter: `user=eq.${user.id}` }, (payload) => {
         setData((prev) => ({
           ...prev,
-          config: realPB.mapFinancialConfig(e.record),
-          jantaresUsados: e.record["jantares_usados"] ?? prev.jantaresUsados,
+          config: realPB.mapFinancialConfig(payload.new),
+          jantaresUsados: payload.new.jantares_usados ?? prev.jantaresUsados,
+          cinemasUsados: payload.new.cinemas_usados ?? prev.cinemasUsados,
         }));
-      }
-    }).then((unsub) => unsubFns.push(unsub));
-
-    pb.collection("desapego_items").subscribe("*", () => {
-      if (user) {
-        realPB.fetchDesapegoItems(user.id).then((items) => {
-          setData((prev) => ({ ...prev, desapegoItems: items }));
-        });
-      }
-    }).then((unsub) => unsubFns.push(unsub));
+      })
+      .subscribe();
 
     return () => {
-      unsubFns.forEach((fn) => fn());
-      pb.collection("transactions").unsubscribe("*").catch(() => {});
-      pb.collection("planned_entries").unsubscribe("*").catch(() => {});
-      pb.collection("financial_config").unsubscribe("*").catch(() => {});
-      pb.collection("desapego_items").unsubscribe("*").catch(() => {});
+      supabase.removeChannel(channel);
     };
   }, [user, isMockMode]);
 
@@ -261,6 +244,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       transactions: prev.transactions.map((t) => (t.id === id ? updated : t)),
     }));
   }, [api]);
+
   const handleAddPlannedEntry = useCallback(async (entry: PlannedEntry) => {
     if (!user) return;
     const created = await api.createPlannedEntry(entry, user.id);
@@ -305,5 +289,4 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Re-export as DataProvider for backward compat
 export const DataProvider = FinanceProvider;
