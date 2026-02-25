@@ -38,3 +38,8 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+VITE_AWESOMEAPI_KEY = "d88d5fc818ba7bb6cd285b75edfd584c403d5390d6ce2538dfff70df25dab6d8"

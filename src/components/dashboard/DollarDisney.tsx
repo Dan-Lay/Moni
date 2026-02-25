@@ -1,28 +1,54 @@
-import { useState } from "react";
-import { DollarSign, TrendingDown, TrendingUp, Euro } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Euro, Wifi, WifiOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFinance } from "@/contexts/DataContext";
 import { CardSkeleton } from "./Skeletons";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+const AWESOMEAPI_KEY = import.meta.env.VITE_AWESOMEAPI_KEY;
+
+interface AwesomeApiResponse {
+  USDBRL?: { bid: string };
+  EURBRL?: { bid: string };
+}
+
+async function fetchExchangeRates(): Promise<AwesomeApiResponse> {
+  const url = `https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL${AWESOMEAPI_KEY ? `?token=${AWESOMEAPI_KEY}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Falha ao buscar cotação");
+  return res.json();
+}
 
 export const DollarDisney = () => {
   const { data, isLoading } = useFinance();
   const [isEuropa, setIsEuropa] = useState(false);
 
+  const { data: liveRates, isError: ratesError } = useQuery<AwesomeApiResponse>({
+    queryKey: ["exchange-rates"],
+    queryFn: fetchExchangeRates,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+
   if (isLoading) return <CardSkeleton hasBar hasGrid />;
 
   const { cotacaoDolar, cotacaoMediaDCA, reservaUSD, metaUSD, cotacaoEuro, cotacaoMediaDCAEUR, reservaEUR, metaEUR } = data.config;
 
-  // Disney (USD) mode
-  const diffUSD = ((cotacaoDolar - cotacaoMediaDCA) / cotacaoMediaDCA) * 100;
-  const deveComprarUSD = cotacaoDolar < cotacaoMediaDCA;
+  const liveDolar = liveRates?.USDBRL?.bid ? parseFloat(liveRates.USDBRL.bid) : null;
+  const liveEuro = liveRates?.EURBRL?.bid ? parseFloat(liveRates.EURBRL.bid) : null;
+  const isLive = !ratesError && (liveDolar !== null || liveEuro !== null);
 
-  // Europa (EUR) mode
-  const diffEUR = ((cotacaoEuro - cotacaoMediaDCAEUR) / cotacaoMediaDCAEUR) * 100;
-  const deveComprarEUR = cotacaoEuro < cotacaoMediaDCAEUR;
+  const cotacaoDolarEfetiva = liveDolar ?? cotacaoDolar;
+  const cotacaoEuroEfetiva = liveEuro ?? cotacaoEuro;
 
-  const cotacao = isEuropa ? cotacaoEuro : cotacaoDolar;
+  const diffUSD = ((cotacaoDolarEfetiva - cotacaoMediaDCA) / cotacaoMediaDCA) * 100;
+  const deveComprarUSD = cotacaoDolarEfetiva < cotacaoMediaDCA;
+
+  const diffEUR = ((cotacaoEuroEfetiva - cotacaoMediaDCAEUR) / cotacaoMediaDCAEUR) * 100;
+  const deveComprarEUR = cotacaoEuroEfetiva < cotacaoMediaDCAEUR;
+
+  const cotacao = isEuropa ? cotacaoEuroEfetiva : cotacaoDolarEfetiva;
   const media = isEuropa ? cotacaoMediaDCAEUR : cotacaoMediaDCA;
   const reserva = isEuropa ? reservaEUR : reservaUSD;
   const meta = isEuropa ? metaEUR : metaUSD;
@@ -48,6 +74,10 @@ export const DollarDisney = () => {
           <h3 className="text-sm font-medium text-muted-foreground">
             {isEuropa ? "Euro Europa" : "Dólar Disney"}
           </h3>
+          {isLive
+            ? <Wifi className="h-3 w-3 text-primary" title="Cotação ao vivo" />
+            : <WifiOff className="h-3 w-3 text-muted-foreground/50" title="Cotação manual" />
+          }
         </div>
 
         <div className="flex items-center gap-2">
