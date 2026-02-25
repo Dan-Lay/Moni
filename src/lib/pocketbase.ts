@@ -6,8 +6,11 @@ import {
 } from "./types";
 import { categoryIdToName, categoryNameToId, ensureCategoryCache } from "./category-cache";
 
-// PocketBase URL — configurable via env or defaults to Tailscale IP
-const PB_URL = import.meta.env.VITE_POCKETBASE_URL || "http://100.82.134.109:8090";
+// PocketBase URL — must be set via VITE_POCKETBASE_URL environment variable
+const PB_URL = import.meta.env.VITE_POCKETBASE_URL;
+if (!PB_URL) {
+  console.error("[FinWar] VITE_POCKETBASE_URL não configurado. Defina esta variável de ambiente com a URL do seu PocketBase.");
+}
 
 export const pb = new PocketBase(PB_URL);
 
