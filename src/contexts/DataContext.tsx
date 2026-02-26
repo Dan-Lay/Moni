@@ -37,7 +37,7 @@ interface FinanceContextType {
   profileFilter: ProfileFilter;
   setProfileFilter: (p: ProfileFilter) => void;
   addTransactions: (txs: Transaction[]) => Promise<void>;
-  updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>) => Promise<void>;
+  updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>) => Promise<void>;
   updateConfig: (partial: Partial<FinancialConfig>) => Promise<void>;
   updateDesapego: (items: DesapegoItem[]) => Promise<void>;
   updateJantares: (count: number) => Promise<void>;
@@ -66,6 +66,8 @@ const DEFAULT_CONFIG: FinancialConfig = {
   maxJantaresMes: 2, maxGastoJantar: 250, aportePercentual: 15,
   iofInternacional: 4.38, limiteSeguranca: 2000,
   maxCinemasMes: 2, maxGastoCinema: 60, customCategories: [],
+  milhasConversaoMastercardBRL: 1.0, milhasConversaoMastercardUSD: 2.0,
+  milhasConversaoVisaBRL: 0.0, milhasConversaoVisaUSD: 0.0,
 };
 
 function getEmptyData(): AppData {
@@ -91,7 +93,7 @@ function computeFinance(data: AppData, profile: ProfileFilter): FinanceState {
     monthSummary: getMonthSummary(data.transactions, data.config),
     cashFlow: buildCashFlowProjection(data.transactions, data.config, data.plannedEntries ?? []),
     topEstablishments: topEstablishments(monthTxs, 5, profile),
-    totalMilesEarned: totalMilesFromTransactions(data.transactions),
+    totalMilesEarned: totalMilesFromTransactions(data.transactions, data.config),
     categoryBreakdown: sumByCategory(monthTxs, profile),
   };
 }
@@ -274,7 +276,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 
   const handleUpdateTransaction = useCallback(async (
     id: string,
-    patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
+    patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
   ) => {
     const updated = await api.updateTransaction(id, patch);
     setData((prev) => ({

@@ -5,6 +5,35 @@ import {
   toISODate, toBRL, toMiles, toPercent,
 } from "./types";
 
+// ── Miles engine ──
+
+/**
+ * Compute miles earned for a single transaction using configured conversion factors.
+ * Rules:
+ *  - Credits (amount >= 0) → 0 miles
+ *  - Category "pagamento_fatura" → 0 miles (avoid double-counting)
+ *  - Card network not Mastercard or Visa → 0 miles
+ *  - Otherwise: |amount| × factor, where factor depends on (cardNetwork, isInternational)
+ */
+export function computeMilesForTx(tx: Transaction, config: FinancialConfig): number {
+  if (tx.amount >= 0) return 0;
+  if (tx.category === "pagamento_fatura") return 0;
+  if (tx.cardNetwork !== "mastercard" && tx.cardNetwork !== "visa") return 0;
+
+  let factor: number;
+  if (tx.cardNetwork === "mastercard") {
+    factor = tx.isInternational
+      ? config.milhasConversaoMastercardUSD
+      : config.milhasConversaoMastercardBRL;
+  } else {
+    factor = tx.isInternational
+      ? config.milhasConversaoVisaUSD
+      : config.milhasConversaoVisaBRL;
+  }
+
+  return Math.round(Math.abs(tx.amount) * factor);
+}
+
 // ── Pure computation helpers (no localStorage) ──
 
 export function getFuturePlannedForMonth(entries: readonly PlannedEntry[]): PlannedEntry[] {
@@ -105,7 +134,10 @@ export function sumByCategory(
   return result;
 }
 
-export function totalMilesFromTransactions(txs: readonly Transaction[]): number {
+export function totalMilesFromTransactions(txs: readonly Transaction[], config?: FinancialConfig): number {
+  if (config) {
+    return txs.reduce((acc, t) => acc + computeMilesForTx(t, config), 0);
+  }
   return txs.reduce((acc, t) => acc + t.milesGenerated, 0);
 }
 

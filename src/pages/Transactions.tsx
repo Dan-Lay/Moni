@@ -40,6 +40,7 @@ interface UnifiedRow {
   isInefficient?: boolean;
   milesGenerated?: number;
   establishment?: string;
+  isConfirmed?: boolean;
 }
 
 const Transactions = () => {
@@ -54,6 +55,7 @@ const Transactions = () => {
   const [catFilter, setCatFilter] = useState<TransactionCategory | "all">("all");
   const [authorFilter, setAuthorFilter] = useState<SpouseProfile | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [onlyConfirmed, setOnlyConfirmed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCat, setEditCat] = useState<TransactionCategory>("outros");
   const [editAmount, setEditAmount] = useState("");
@@ -86,6 +88,7 @@ const Transactions = () => {
         isInefficient: t.isInefficient,
         milesGenerated: t.milesGenerated,
         establishment: t.establishment,
+        isConfirmed: t.isConfirmed,
       }));
 
     const peRows: UnifiedRow[] = (data.plannedEntries ?? []).map((e) => ({
@@ -113,9 +116,10 @@ const Transactions = () => {
       const matchCat = catFilter === "all" || t.category === catFilter;
       const matchAuthor = authorFilter === "all" || t.spouseProfile === authorFilter;
       const matchSource = sourceFilter === "all" || t.source === sourceFilter;
-      return matchSearch && matchCat && matchAuthor && matchSource;
+      const matchConfirmed = !onlyConfirmed || !!t.isConfirmed;
+      return matchSearch && matchCat && matchAuthor && matchSource && matchConfirmed;
     });
-  }, [unifiedRows, search, catFilter, authorFilter, sourceFilter]);
+  }, [unifiedRows, search, catFilter, authorFilter, sourceFilter, onlyConfirmed]);
 
   const totalFiltered = filtered.reduce((a, t) => a + Math.abs(t.amount), 0);
 
@@ -148,6 +152,7 @@ const Transactions = () => {
         spouseProfile: editAuthor,
         description: editDesc || undefined,
         treatedName: editTreatedName || undefined,
+        isConfirmed: true,
       });
     }
     setEditingId(null);
@@ -275,6 +280,17 @@ const Transactions = () => {
             </button>
           ))}
         </div>
+        {/* Confirmed filter toggle */}
+        <button
+          onClick={() => setOnlyConfirmed(!onlyConfirmed)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+            onlyConfirmed ? "bg-primary text-primary-foreground shadow-sm" : "bg-secondary text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <CheckCircle2 className="h-3 w-3" />
+          Só confirmadas
+        </button>
       </div>
 
       {/* Table */}
@@ -283,7 +299,8 @@ const Transactions = () => {
           Nenhum item encontrado. Ajuste os filtros ou importe extratos.
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+          <div className="space-y-1.5">
           <AnimatePresence>
             {filtered.map((t, i) => {
               const isEditing = editingId === t.id;
@@ -355,19 +372,19 @@ const Transactions = () => {
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className={cn("text-sm font-medium truncate", isPlanned && t.conciliado && "line-through text-muted-foreground")}>
+                        <div className="flex items-center gap-1.5 min-w-0 w-full">
+                          <p className={cn("text-sm font-medium truncate min-w-0 flex-1", isPlanned && t.conciliado && "line-through text-muted-foreground")}>
                             {t.treatedName || t.establishment || t.description}
                           </p>
-                          {t.treatedName && (
-                            <span className="text-[10px] text-muted-foreground truncate max-w-24">({t.description})</span>
-                          )}
                           {hasAlert && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-semibold">
-                              <TrendingUp className="h-2.5 w-2.5" /> +20% histórico
+                            <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-semibold shrink-0">
+                              <TrendingUp className="h-2.5 w-2.5" /> +20%
                             </span>
                           )}
                         </div>
+                        {t.treatedName && (
+                          <p className="text-[10px] text-muted-foreground truncate">{t.description}</p>
+                        )}
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <span className="text-[10px] text-muted-foreground">{t.date}</span>
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
@@ -422,6 +439,7 @@ const Transactions = () => {
               );
             })}
           </AnimatePresence>
+          </div>
         </div>
       )}
     </AppLayout>

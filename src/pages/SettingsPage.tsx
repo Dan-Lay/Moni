@@ -1,16 +1,17 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Moon, Sun, User, Shield, Bell, Palette, LogOut, ChevronRight, Tags } from "lucide-react";
+import { Moon, Sun, User, Shield, Bell, Palette, LogOut, ChevronRight, Tags, Plane } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { CategoryManager } from "@/components/settings/CategoryManager";
+import { MilesSettings } from "@/components/settings/MilesSettings";
 import { useNavigate } from "react-router-dom";
 
-type SettingsTab = "main" | "security" | "account" | "notifications";
+type SettingsTab = "main" | "security" | "account" | "notifications" | "miles";
 
 const SettingsPage = () => {
   const { theme, toggleTheme } = useTheme();
@@ -26,6 +27,7 @@ const SettingsPage = () => {
   if (activeTab === "security") return <SecuritySettings onBack={() => setActiveTab("main")} />;
   if (activeTab === "account") return <AccountSettings onBack={() => setActiveTab("main")} />;
   if (activeTab === "notifications") return <NotificationSettings onBack={() => setActiveTab("main")} />;
+  if (activeTab === "miles") return <MilesSettings onBack={() => setActiveTab("main")} />;
 
   return (
     <AppLayout>
@@ -73,6 +75,7 @@ const SettingsPage = () => {
           { icon: User, title: "Conta", desc: "Perfil e dados pessoais", tab: "account" as SettingsTab },
           { icon: Shield, title: "Segurança", desc: "2FA e autenticação", tab: "security" as SettingsTab },
           { icon: Bell, title: "Notificações", desc: "Alertas e lembretes", tab: "notifications" as SettingsTab },
+          { icon: Plane, title: "Milhas", desc: "Fatores de conversão AAdvantage", tab: "miles" as SettingsTab },
         ].map((item, i) => (
           <motion.button
             key={item.title}
@@ -97,7 +100,7 @@ const SettingsPage = () => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.3 }}
         >
           <CategoryManager />
         </motion.div>
@@ -106,7 +109,7 @@ const SettingsPage = () => {
         <motion.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.35 }}
           onClick={handleLogout}
           className="flex w-full items-center gap-4 rounded-2xl border border-destructive/20 bg-destructive/5 p-5 hover:bg-destructive/10 transition-colors text-left"
         >

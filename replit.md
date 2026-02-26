@@ -67,6 +67,31 @@ UPDATE public.profiles SET is_admin = TRUE WHERE email = 'contato.dan@gmail.com'
 
 **Family accounts**: Users sharing the same `family_id` in `profiles` are linked as a family unit.
 
+## Miles Engine (MVP1)
+
+Transactions earn miles based on card network × currency:
+- **Mastercard (AAdvantage)**: configurable `milhasConversaoMastercardBRL` (national) and `milhasConversaoMastercardUSD` (international)
+- **Visa**: configurable `milhasConversaoVisaBRL` and `milhasConversaoVisaUSD`
+- **Excluded**: `pagamento_fatura` category (avoids double-counting) and non-Visa/Mastercard cards
+- Configuration screen at Settings → Milhas
+
+Two new DB columns required in Supabase:
+```sql
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_network VARCHAR DEFAULT 'mastercard';
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_confirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE financial_config ADD COLUMN IF NOT EXISTS milhas_conversao_mastercard_brl NUMERIC DEFAULT 1.0;
+ALTER TABLE financial_config ADD COLUMN IF NOT EXISTS milhas_conversao_mastercard_usd NUMERIC DEFAULT 2.0;
+ALTER TABLE financial_config ADD COLUMN IF NOT EXISTS milhas_conversao_visa_brl NUMERIC DEFAULT 0.0;
+ALTER TABLE financial_config ADD COLUMN IF NOT EXISTS milhas_conversao_visa_usd NUMERIC DEFAULT 0.0;
+```
+
+## Transactions Page
+
+- Internal scroll list (`max-h-[calc(100vh-280px)]`) prevents page from growing infinitely
+- "Só confirmadas" toggle filter: shows only transactions with `is_confirmed = true`
+- Editing a transaction automatically marks it as confirmed
+- Text clipping fixed: title uses `flex-1 truncate min-w-0` pattern
+
 ## Running
 
 The workflow "Start application" runs `npm run dev` which starts Vite on port 5000.

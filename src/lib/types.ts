@@ -31,6 +31,8 @@ export const formatMiles = (miles: number): string =>
 // ── Enums ──
 export type TransactionSource = "santander" | "bradesco" | "nubank" | "unknown";
 
+export type CardNetwork = "mastercard" | "visa" | "elo" | "other";
+
 // ── Recurrence types for manual entries ──
 export type RecurrenceType = "unico" | "diario" | "quinzenal" | "mensal" | "anual";
 
@@ -68,6 +70,7 @@ export type TransactionCategory =
   | "saude"
   | "alimentacao"
   | "compras"
+  | "pagamento_fatura"
   | "outros";
 
 export const CATEGORY_LABELS: Record<TransactionCategory, string> = {
@@ -80,6 +83,7 @@ export const CATEGORY_LABELS: Record<TransactionCategory, string> = {
   investimentos: "Investimentos",
   fixas: "Fixas",
   compras: "Compras",
+  pagamento_fatura: "Pagamento de Fatura",
   outros: "Outros",
 };
 
@@ -112,6 +116,8 @@ export interface Transaction {
   readonly establishment: string;
   readonly spouseProfile: SpouseProfile; // "marido" | "esposa" | "familia"
   readonly isAdditionalCard: boolean;   // true = cartão adicional (Esposa)
+  readonly cardNetwork: CardNetwork;    // bandeira do cartão
+  readonly isConfirmed: boolean;        // true = categoria confirmada pelo usuário
 }
 
 export interface FinancialConfig {
@@ -136,6 +142,11 @@ export interface FinancialConfig {
   readonly customCategories: { key: string; label: string }[];
   readonly hiddenBuiltInCategories?: string[];
   readonly renamedBuiltInCategories?: Record<string, string>;
+  // Miles conversion factors per card network × currency
+  readonly milhasConversaoMastercardBRL: number;
+  readonly milhasConversaoMastercardUSD: number;
+  readonly milhasConversaoVisaBRL: number;
+  readonly milhasConversaoVisaUSD: number;
 }
 
 export interface DesapegoItem {

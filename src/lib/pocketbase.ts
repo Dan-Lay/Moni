@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import {
   Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
-  TransactionSource, TransactionCategory, SpouseProfile, RecurrenceType,
+  TransactionSource, TransactionCategory, SpouseProfile, RecurrenceType, CardNetwork,
   toISODate, toBRL, toMiles,
 } from "./types";
 
@@ -23,6 +23,8 @@ export function mapTransaction(r: Record<string, any>): Transaction {
     establishment: r.establishment || "",
     spouseProfile: (r.spouse_profile || "familia") as SpouseProfile,
     isAdditionalCard: !!r.is_additional_card,
+    cardNetwork: (r.card_network || "mastercard") as CardNetwork,
+    isConfirmed: !!r.is_confirmed,
   };
 }
 
@@ -79,6 +81,10 @@ export function mapFinancialConfig(r: Record<string, any>): FinancialConfig {
     renamedBuiltInCategories: Array.isArray(r.custom_categories)
       ? {}
       : (r.custom_categories?.renamed ?? {}),
+    milhasConversaoMastercardBRL: r.milhas_conversao_mastercard_brl ?? 1.0,
+    milhasConversaoMastercardUSD: r.milhas_conversao_mastercard_usd ?? 2.0,
+    milhasConversaoVisaBRL: r.milhas_conversao_visa_brl ?? 0.0,
+    milhasConversaoVisaUSD: r.milhas_conversao_visa_usd ?? 0.0,
   };
 }
 
@@ -111,6 +117,8 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
     establishment: tx.establishment,
     spouse_profile: tx.spouseProfile,
     is_additional_card: tx.isAdditionalCard,
+    card_network: tx.cardNetwork,
+    is_confirmed: tx.isConfirmed,
     user_id: userId,
   }));
 
@@ -126,7 +134,7 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
 
 export async function updateTransaction(
   id: string,
-  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName">>
+  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
 ): Promise<Transaction> {
   const data: Record<string, unknown> = {};
   if (patch.category !== undefined) data.category = patch.category;
@@ -134,6 +142,8 @@ export async function updateTransaction(
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
   if (patch.description !== undefined) data.description = patch.description;
   if (patch.treatedName !== undefined) data.treated_name = patch.treatedName;
+  if (patch.cardNetwork !== undefined) data.card_network = patch.cardNetwork;
+  if (patch.isConfirmed !== undefined) data.is_confirmed = patch.isConfirmed;
   const { data: row, error } = await supabase.from("transactions").update(data).eq("id", id).select().single();
   if (error) throw error;
   return mapTransaction(row);
@@ -160,6 +170,8 @@ export async function fetchConfig(userId: string): Promise<{ id: string; config:
     max_jantares_mes: 2, max_gasto_jantar: 250, aporte_percentual: 15,
     iof_internacional: 4.38, limite_seguranca: 2000,
     max_cinemas_mes: 2, max_gasto_cinema: 60, jantares_usados: 0, cinemas_usados: 0,
+    milhas_conversao_mastercard_brl: 1.0, milhas_conversao_mastercard_usd: 2.0,
+    milhas_conversao_visa_brl: 0.0, milhas_conversao_visa_usd: 0.0,
     user_id: userId,
   };
   const { data: created, error: createErr } = await supabase.from("financial_config").insert(defaults).select().single();
@@ -185,6 +197,10 @@ export async function updateConfigRemote(configId: string, patch: Partial<Financ
   if (patch.aportePercentual !== undefined) data.aporte_percentual = patch.aportePercentual;
   if (patch.iofInternacional !== undefined) data.iof_internacional = patch.iofInternacional;
   if (patch.limiteSeguranca !== undefined) data.limite_seguranca = patch.limiteSeguranca;
+  if (patch.milhasConversaoMastercardBRL !== undefined) data.milhas_conversao_mastercard_brl = patch.milhasConversaoMastercardBRL;
+  if (patch.milhasConversaoMastercardUSD !== undefined) data.milhas_conversao_mastercard_usd = patch.milhasConversaoMastercardUSD;
+  if (patch.milhasConversaoVisaBRL !== undefined) data.milhas_conversao_visa_brl = patch.milhasConversaoVisaBRL;
+  if (patch.milhasConversaoVisaUSD !== undefined) data.milhas_conversao_visa_usd = patch.milhasConversaoVisaUSD;
   if (
     patch.customCategories !== undefined ||
     patch.hiddenBuiltInCategories !== undefined ||
