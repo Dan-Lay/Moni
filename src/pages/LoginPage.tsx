@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, Mail, Lock, UserPlus } from "lucide-react";
@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
 const LoginPage = () => {
-  const { isAuthenticated, login, register, isMockMode } = useAuth();
+  const { isAuthenticated, isLoading, login, register, isMockMode } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isRegister, setIsRegister] = useState(false);
@@ -15,10 +15,11 @@ const LoginPage = () => {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
-    navigate("/", { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +32,6 @@ const LoginPage = () => {
         await login(email, password);
         toast({ title: "Bem-vinda de volta! 💜", description: "A Moni preparou tudo para você." });
       }
-      navigate("/", { replace: true });
     } catch (err: any) {
       const msg = err?.message ?? "";
       const friendly =
@@ -52,6 +52,19 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 glow-primary">
+            <Sparkles className="h-10 w-10 text-primary animate-pulse" />
+          </div>
+          <p className="text-sm text-muted-foreground animate-pulse">Restaurando sessão...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
