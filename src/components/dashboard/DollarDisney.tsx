@@ -6,37 +6,48 @@ import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-const AWESOMEAPI_KEY = import.meta.env.VITE_AWESOMEAPI_KEY;
-
-interface AwesomeApiResponse {
-  USDBRL?: { bid: string };
-  EURBRL?: { bid: string };
+interface ExchangeRates {
+  usdBrl: number | null;
+  eurBrl: number | null;
 }
 
-async function fetchExchangeRates(): Promise<AwesomeApiResponse> {
-  const url = `https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL${AWESOMEAPI_KEY ? `?token=${AWESOMEAPI_KEY}` : ""}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Falha ao buscar cotação");
-  return res.json();
+async function fetchExchangeRates(): Promise<ExchangeRates> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(
+      "https://api.frankfurter.app/latest?from=BRL&to=USD,EUR",
+      { signal: controller.signal }
+    );
+    if (!res.ok) throw new Error("status " + res.status);
+    const json = await res.json();
+    const rates = json?.rates ?? {};
+    return {
+      usdBrl: rates.USD ? Math.round((1 / rates.USD) * 10000) / 10000 : null,
+      eurBrl: rates.EUR ? Math.round((1 / rates.EUR) * 10000) / 10000 : null,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const DollarDisney = () => {
   const { data, isLoading } = useFinance();
   const [isEuropa, setIsEuropa] = useState(false);
 
-  const { data: liveRates, isError: ratesError } = useQuery<AwesomeApiResponse>({
+  const { data: liveRates, isError: ratesError } = useQuery<ExchangeRates>({
     queryKey: ["exchange-rates"],
     queryFn: fetchExchangeRates,
     staleTime: 5 * 60 * 1000,
-    retry: 2,
+    retry: 1,
   });
 
   if (isLoading) return <CardSkeleton hasBar hasGrid />;
 
   const { cotacaoDolar, cotacaoMediaDCA, reservaUSD, metaUSD, cotacaoEuro, cotacaoMediaDCAEUR, reservaEUR, metaEUR } = data.config;
 
-  const liveDolar = liveRates?.USDBRL?.bid ? parseFloat(liveRates.USDBRL.bid) : null;
-  const liveEuro = liveRates?.EURBRL?.bid ? parseFloat(liveRates.EURBRL.bid) : null;
+  const liveDolar = liveRates?.usdBrl ?? null;
+  const liveEuro = liveRates?.eurBrl ?? null;
   const isLive = !ratesError && (liveDolar !== null || liveEuro !== null);
 
   const cotacaoDolarEfetiva = liveDolar ?? cotacaoDolar;

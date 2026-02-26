@@ -197,13 +197,19 @@ const UploadPage = () => {
   const processTransactionsWithRules = useCallback(async (txs: Transaction[], fileName: string) => {
     setLoadingMsg("Aplicando regras de categorização...");
 
-    // Fetch latest rules
+    // Fetch latest rules with timeout so a slow network doesn't hang the upload
     let currentRules = rules;
     if (user?.id) {
       try {
-        currentRules = await fetchCategorizationRules(user.id);
+        const rulesPromise = fetchCategorizationRules(user.id);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 5000)
+        );
+        currentRules = await Promise.race([rulesPromise, timeoutPromise]);
         setRules(currentRules);
-      } catch {}
+      } catch {
+        // Use cached rules if fetch fails or times out
+      }
     }
 
     // Process in chunks to avoid freezing

@@ -51,6 +51,19 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
   };
 }
 
+function fallbackProfile(supaUser: { id: string; email?: string }): UserProfile {
+  return {
+    id: supaUser.id,
+    name: supaUser.email?.split("@")[0] || "",
+    email: supaUser.email || "",
+    avatarUrl: "",
+    defaultProfile: "todos",
+    mfaEnabled: false,
+    isAdmin: false,
+    familyId: null,
+  };
+}
+
 const isMockConfigured = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -65,42 +78,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setUser(profile ?? {
-          id: session.user.id,
-          name: session.user.email?.split("@")[0] || "",
-          email: session.user.email || "",
-          avatarUrl: "",
-          defaultProfile: "todos",
-          mfaEnabled: false,
-          isAdmin: false,
-          familyId: null,
-        });
+    let initialized = false;
+
+    const finishLoading = () => {
+      if (!initialized) {
+        initialized = true;
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setUser(profile ?? {
-          id: session.user.id,
-          name: session.user.email?.split("@")[0] || "",
-          email: session.user.email || "",
-          avatarUrl: "",
-          defaultProfile: "todos",
-          mfaEnabled: false,
-          isAdmin: false,
-          familyId: null,
-        });
+        try {
+          const profile = await fetchProfile(session.user.id);
+          setUser(profile ?? fallbackProfile(session.user));
+        } catch {
+          setUser(fallbackProfile(session.user));
+        }
       } else {
         setUser(null);
       }
+      finishLoading();
     });
 
-    return () => subscription.unsubscribe();
+    // Safety: if onAuthStateChange never fires (network down), unblock after 8s
+    const safetyTimer = setTimeout(finishLoading, 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, [isMockMode]);
 
   const isAuthenticated = !!user;

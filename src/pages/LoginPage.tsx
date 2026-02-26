@@ -33,7 +33,21 @@ const LoginPage = () => {
       }
       navigate("/", { replace: true });
     } catch (err: any) {
-      toast({ title: "Erro", description: err?.message || "Credenciais inválidas.", variant: "destructive" });
+      const msg = err?.message ?? "";
+      const friendly =
+        msg.includes("Invalid login credentials") ||
+        msg.includes("invalid_grant") ||
+        msg.includes("Email not confirmed") ||
+        msg.includes("No API key") ||
+        msg.includes("apikey") ||
+        msg.includes("Forbidden")
+          ? "Senha ou e-mail incorretos, verifique novamente."
+          : msg.includes("User already registered")
+          ? "Este e-mail já está cadastrado. Tente fazer login."
+          : msg.includes("Password should be")
+          ? "A senha deve ter pelo menos 8 caracteres."
+          : "Não foi possível conectar. Verifique sua conexão e tente novamente.";
+      toast({ title: "Acesso negado", description: friendly, variant: "destructive" });
     } finally {
       setLoading(false);
     }
