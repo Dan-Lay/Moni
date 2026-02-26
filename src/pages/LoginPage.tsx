@@ -32,6 +32,8 @@ const LoginPage = () => {
         await login(email, password);
         toast({ title: "Bem-vinda de volta! 💜", description: "A Moni preparou tudo para você." });
       }
+      // Não resetar loading aqui — o spinner fica até onAuthStateChange
+      // setar o usuário e o useEffect navegar para "/"
     } catch (err: any) {
       const msg = err?.message ?? "";
       const friendly =
@@ -48,19 +50,20 @@ const LoginPage = () => {
           ? "A senha deve ter pelo menos 8 caracteres."
           : "Não foi possível conectar. Verifique sua conexão e tente novamente.";
       toast({ title: "Acesso negado", description: friendly, variant: "destructive" });
-    } finally {
-      setLoading(false);
+      setLoading(false); // Só reseta no erro — sucesso espera pela navegação
     }
   };
 
-  if (isLoading) {
+  if (isLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 glow-primary">
             <Sparkles className="h-10 w-10 text-primary animate-pulse" />
           </div>
-          <p className="text-sm text-muted-foreground animate-pulse">Restaurando sessão...</p>
+          <p className="text-sm text-muted-foreground animate-pulse">
+            {loading ? "Entrando..." : "Restaurando sessão..."}
+          </p>
         </div>
       </div>
     );
