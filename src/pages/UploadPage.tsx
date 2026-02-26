@@ -32,7 +32,7 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-const CHUNK_SIZE = 200;
+const CHUNK_SIZE = 30;
 
 // ── Parse CSV with custom column mapping ──
 function parseCSVWithMapping(
@@ -195,11 +195,13 @@ const UploadPage = () => {
 
   // ── Core: process transactions with rule engine (chunked) ──
   const processTransactionsWithRules = useCallback(async (txs: Transaction[], fileName: string) => {
-    setLoadingMsg("Aplicando regras de categorização...");
+    setLoadingMsg("Buscando regras de categorização...");
+    console.time("[Moni] upload-total");
 
     // Fetch latest rules with timeout so a slow network doesn't hang the upload
     let currentRules = rules;
     if (user?.id) {
+      console.time("[Moni] fetch-rules");
       try {
         const rulesPromise = fetchCategorizationRules(user.id);
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -210,41 +212,39 @@ const UploadPage = () => {
       } catch {
         // Use cached rules if fetch fails or times out
       }
+      console.timeEnd("[Moni] fetch-rules");
     }
 
-    // Process in chunks to avoid freezing
+    // Process in chunks — always yield to keep UI responsive
+    console.time("[Moni] categorize");
     const rows: ReviewRow[] = [];
     for (let i = 0; i < txs.length; i += CHUNK_SIZE) {
       const chunk = txs.slice(i, i + CHUNK_SIZE);
       for (const tx of chunk) {
         const ruleMatch = matchRule(tx.description, currentRules);
         if (ruleMatch) {
-          // Apply rule: override category and profile
-          const categorized: Transaction = {
-            ...tx,
-            category: ruleMatch.category,
-            spouseProfile: ruleMatch.profile,
-          };
-          rows.push({ tx: categorized, ruleMatch, status: "auto", ignored: false });
+          rows.push({
+            tx: { ...tx, category: ruleMatch.category, spouseProfile: ruleMatch.profile },
+            ruleMatch,
+            status: "auto",
+            ignored: false,
+          });
         } else {
           const builtinCat = categorizeTransaction(tx.description);
-          if (builtinCat !== "outros") {
-            rows.push({ tx, ruleMatch: null, status: "auto", ignored: false });
-          } else {
-            rows.push({ tx, ruleMatch: null, status: "pending", ignored: false });
-          }
+          rows.push({ tx, ruleMatch: null, status: builtinCat !== "outros" ? "auto" : "pending", ignored: false });
         }
       }
-      if (txs.length > CHUNK_SIZE) {
-        setLoadingMsg(`Categorizando... ${Math.min(i + CHUNK_SIZE, txs.length)}/${txs.length}`);
-        await sleep(0); // yield to UI thread
-      }
+      const done = Math.min(i + CHUNK_SIZE, txs.length);
+      setLoadingMsg(`Categorizando... ${done} de ${txs.length}`);
+      await sleep(0); // yield to UI on every chunk regardless of size
     }
+    console.timeEnd("[Moni] categorize");
 
     setLoadingMsg("Conciliando com lançamentos previstos...");
     await sleep(0);
 
     // Reconciliation – parallel, fire all at once
+    console.time("[Moni] reconcile");
     const planned = data.plannedEntries ?? [];
     const reconcileJobs: Promise<boolean>[] = [];
     for (const row of rows) {
@@ -261,6 +261,7 @@ const UploadPage = () => {
     const reconciledCount = reconcileResults.filter(
       (r) => r.status === "fulfilled" && r.value === true
     ).length;
+    console.timeEnd("[Moni] reconcile");
 
     const spouseCount = rows.filter((r) => r.tx.isAdditionalCard).length;
     const totalMiles = rows.reduce((a, r) => a + r.tx.milesGenerated, 0);
@@ -275,6 +276,7 @@ const UploadPage = () => {
 
     setReviewRows(rows);
     setShowReview(true);
+    console.timeEnd("[Moni] upload-total");
     if (reconciledCount > 0) reload();
   }, [rules, user?.id, data.plannedEntries, updatePlannedEntry, reload]);
 

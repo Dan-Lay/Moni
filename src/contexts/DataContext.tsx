@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 import {
   AppData, Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
   EfficiencyStats, MonthSummary, EstablishmentRank,
@@ -142,29 +142,47 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   }, [loadData]);
 
   // ── Supabase Realtime subscriptions ──
+  const insertBufferRef = useRef<Transaction[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!user || isMockMode) return;
+
+    const flushInserts = () => {
+      const buffered = insertBufferRef.current;
+      if (buffered.length === 0) return;
+      insertBufferRef.current = [];
+      setData((prev) => {
+        const existingIds = new Set(prev.transactions.map((t) => t.id));
+        const newOnes = buffered.filter((t) => !existingIds.has(t.id));
+        if (newOnes.length === 0) return prev;
+        const merged = [...prev.transactions, ...newOnes];
+        merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return { ...prev, transactions: merged };
+      });
+    };
 
     const channel = supabase
       .channel(`moni-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, (payload) => {
-        setData((prev) => {
-          const txs = [...prev.transactions];
-          if (payload.eventType === "INSERT") {
-            const newTx = realPB.mapTransaction(payload.new);
-            if (!txs.find((t) => t.id === newTx.id)) {
-              txs.push(newTx);
-              txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            }
-          } else if (payload.eventType === "UPDATE") {
+        if (payload.eventType === "INSERT") {
+          // Buffer batch inserts and flush after 300ms of silence
+          insertBufferRef.current.push(realPB.mapTransaction(payload.new));
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = setTimeout(flushInserts, 300);
+        } else if (payload.eventType === "UPDATE") {
+          setData((prev) => {
+            const txs = [...prev.transactions];
             const idx = txs.findIndex((t) => t.id === payload.new.id);
             if (idx >= 0) txs[idx] = realPB.mapTransaction(payload.new);
-          } else if (payload.eventType === "DELETE") {
-            const idx = txs.findIndex((t) => t.id === payload.old.id);
-            if (idx >= 0) txs.splice(idx, 1);
-          }
-          return { ...prev, transactions: txs };
-        });
+            return { ...prev, transactions: txs };
+          });
+        } else if (payload.eventType === "DELETE") {
+          setData((prev) => ({
+            ...prev,
+            transactions: prev.transactions.filter((t) => t.id !== payload.old.id),
+          }));
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "planned_entries", filter: `user_id=eq.${user.id}` }, (payload) => {
         setData((prev) => {
@@ -193,11 +211,17 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       .subscribe();
 
     return () => {
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      insertBufferRef.current = [];
       supabase.removeChannel(channel);
     };
   }, [user, isMockMode]);
 
-  const finance = computeFinance(data, profileFilter);
+  const finance = useMemo(
+    () => computeFinance(data, profileFilter),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data.transactions, data.config, data.plannedEntries, profileFilter]
+  );
 
   const addTransactions = useCallback(async (txs: Transaction[]) => {
     if (!user) return;
