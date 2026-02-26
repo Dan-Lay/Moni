@@ -32,8 +32,8 @@ const LoginPage = () => {
         await login(email, password);
         toast({ title: "Bem-vinda de volta! 💜", description: "A Moni preparou tudo para você." });
       }
-      // Não resetar loading aqui — o spinner fica até onAuthStateChange
-      // setar o usuário e o useEffect navegar para "/"
+      // login() já setou o user — navegar agora é seguro
+      navigate("/", { replace: true });
     } catch (err: any) {
       const msg = err?.message ?? "";
       const friendly =
@@ -50,7 +50,8 @@ const LoginPage = () => {
           ? "A senha deve ter pelo menos 8 caracteres."
           : "Não foi possível conectar. Verifique sua conexão e tente novamente.";
       toast({ title: "Acesso negado", description: friendly, variant: "destructive" });
-      setLoading(false); // Só reseta no erro — sucesso espera pela navegação
+    } finally {
+      setLoading(false);
     }
   };
 

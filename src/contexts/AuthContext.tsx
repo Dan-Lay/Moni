@@ -88,15 +88,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        try {
-          const profile = await fetchProfile(session.user.id);
-          setUser(profile ?? fallbackProfile(session.user));
-        } catch {
-          setUser(fallbackProfile(session.user));
-        }
-      } else {
+      if (!session?.user) {
         setUser(null);
+        finishLoading();
+        return;
+      }
+      // SIGNED_IN: login() already called fetchProfile + setUser directly.
+      // Fetching here would deadlock because the SDK is still processing the
+      // new access token, queuing any Supabase query indefinitely.
+      if (_event === "SIGNED_IN") {
+        finishLoading();
+        return;
+      }
+      // INITIAL_SESSION, TOKEN_REFRESHED, USER_UPDATED — fetch full profile
+      try {
+        const profile = await fetchProfile(session.user.id);
+        setUser(profile ?? fallbackProfile(session.user));
+      } catch {
+        setUser(fallbackProfile(session.user));
       }
       finishLoading();
     });
@@ -117,8 +126,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser({ ...mockUser, email, isAdmin: email === "contato.dan@gmail.com", familyId: null });
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    // Set user directly from the response — do NOT rely on onAuthStateChange here.
+    // onAuthStateChange(SIGNED_IN) would deadlock trying to query Supabase while
+    // the SDK is still finalizing the new session token.
+    if (data.user) {
+      try {
+        const profile = await fetchProfile(data.user.id);
+        setUser(profile ?? fallbackProfile(data.user));
+      } catch {
+        setUser(fallbackProfile(data.user));
+      }
+    }
   }, [isMockMode]);
 
   const register = useCallback(async (email: string, password: string, name: string) => {
