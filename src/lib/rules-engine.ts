@@ -104,13 +104,17 @@ export async function upsertCategorizationRule(
 
     if (existing) {
       // Update existing rule
-      await supabase
+      const { data, error } = await supabase
         .from("categorization_rules")
         .update({ category, profile })
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .select()
+        .single();
+      console.log("[Moni] Regra atualizada:", data, error);
     } else {
       // Create new
-      await createCategorizationRule(kw, category, profile, userId, familyId);
+      const newRule = await createCategorizationRule(kw, category, profile, userId, familyId);
+      console.log("[Moni] Regra criada:", newRule);
     }
   } catch (err) {
     console.warn("[Moni] upsert rule failed:", err);
@@ -123,7 +127,7 @@ export function matchRule(
 ): CategorizationRule | null {
   const desc = description.toLowerCase();
   for (const rule of rules) {
-    if (rule.keyword && desc.includes(rule.keyword)) {
+    if (rule.keyword && desc.includes(rule.keyword.toLowerCase())) {
       return rule;
     }
   }
