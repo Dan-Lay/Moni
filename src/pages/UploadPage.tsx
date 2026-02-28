@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload as UploadIcon, FileText, FileSpreadsheet, CheckCircle, AlertCircle,
   Plane, Link2, Loader2, Sparkles, Plus, ChevronDown, EyeOff, Eye,
-  GitMerge, Copy, FileUp,
+  GitMerge, Copy, FileUp, ChevronsUpDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useRef, useState, useEffect } from "react";
@@ -21,7 +21,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 
 
@@ -471,7 +471,7 @@ const UploadPage = () => {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"><UploadIcon className="h-7 w-7 text-primary" /></div>
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
             <p className="mb-6 text-sm text-muted-foreground">OFX, CSV e PDF suportados</p>
-            <input ref={fileRef} type="file" accept=".ofx,.qfx,.csv,.txt,.pdf" className="hidden" onChange={handleChange} />
+            <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,application/pdf" className="hidden" onChange={handleChange} />
             <button onClick={() => fileRef.current?.click()} className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">Selecionar Arquivo</button>
           </motion.div>
 
@@ -589,7 +589,7 @@ const UploadPage = () => {
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={onlyCategorized} onChange={(e) => setOnlyCategorized(e.target.checked)}
                     className="h-3.5 w-3.5 rounded border-border accent-primary" />
-                  <span className="text-[11px] text-muted-foreground">Só auto-categorizados</span>
+                  <span className="text-[11px] text-muted-foreground">AutoTag</span>
                 </label>
                 <button onClick={() => { setShowReview(false); setReviewRows([]); setImportSummary(null); setOnlyCategorized(false); }}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
@@ -601,9 +601,14 @@ const UploadPage = () => {
                 </button>
               </div>
             </div>
-            <ScrollArea className="max-h-[55vh]">
-              <div className="space-y-1 pr-3">
-              {reviewRows.map((row, idx) => {
+            {(() => {
+              const isReconciled = (r: ReviewRow) =>
+                r.reconciliation?.action === "skip_duplicate" || r.reconciliation?.action === "reconciled_manual";
+              const mainRows = reviewRows.map((r, i) => ({ row: r, idx: i })).filter(({ row }) => !isReconciled(row));
+              const reconciledRows = reviewRows.map((r, i) => ({ row: r, idx: i })).filter(({ row }) => isReconciled(row));
+
+              const renderRow = ({ row, idx }: { row: ReviewRow; idx: number }) => {
+                if (onlyCategorized && row.status === "pending") return null;
                 const reconcAction = row.reconciliation?.action;
                 const reconcBadge = reconcAction === "skip_duplicate"
                   ? { label: "Já Conciliado", cls: "border-muted-foreground/40 text-muted-foreground bg-muted/30" }
@@ -614,63 +619,78 @@ const UploadPage = () => {
                   : null;
 
                 return (
-                <div key={`${row.tx.id}_${idx}`} className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs transition-opacity ${row.ignored ? "opacity-40" : ""} ${row.status === "pending" && !row.ignored ? "bg-destructive/5" : "bg-secondary/30"}`}>
-                  {/* Ignore toggle */}
-                  <button onClick={() => handleToggleIgnore(idx)} title={row.ignored ? "Restaurar" : "Ignorar"}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors mt-0.5">
-                    {row.ignored ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                  </button>
-                  <span className="w-20 shrink-0 text-muted-foreground mt-0.5">{row.tx.date}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-medium break-words ${row.ignored ? "line-through" : ""}`} title={row.tx.description}>
-                      {row.tx.treatedName || row.tx.description}
-                    </p>
-                    {reconcBadge && (
-                      <Badge variant="outline" className={`mt-1 text-[9px] px-1.5 py-0 h-4 ${reconcBadge.cls}`}>
-                        {reconcAction === "skip_duplicate" && <Copy className="h-2 w-2 mr-0.5" />}
-                        {reconcAction === "reconciled_manual" && <GitMerge className="h-2 w-2 mr-0.5" />}
-                        {reconcAction === "new" && <FileUp className="h-2 w-2 mr-0.5" />}
-                        {reconcBadge.label}
-                      </Badge>
+                  <div key={`${row.tx.id}_${idx}`} className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs transition-opacity ${row.ignored ? "opacity-40" : ""} ${row.status === "pending" && !row.ignored ? "bg-destructive/5" : "bg-secondary/30"}`}>
+                    <button onClick={() => handleToggleIgnore(idx)} title={row.ignored ? "Restaurar" : "Ignorar"}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors mt-0.5">
+                      {row.ignored ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </button>
+                    <span className="w-20 shrink-0 text-muted-foreground mt-0.5">{row.tx.date}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-medium break-words ${row.ignored ? "line-through" : ""}`} title={row.tx.description}>
+                        {row.tx.treatedName || row.tx.description}
+                      </p>
+                      {reconcBadge && (
+                        <Badge variant="outline" className={`mt-1 text-[9px] px-1.5 py-0 h-4 ${reconcBadge.cls}`}>
+                          {reconcAction === "skip_duplicate" && <Copy className="h-2 w-2 mr-0.5" />}
+                          {reconcAction === "reconciled_manual" && <GitMerge className="h-2 w-2 mr-0.5" />}
+                          {reconcAction === "new" && <FileUp className="h-2 w-2 mr-0.5" />}
+                          {reconcBadge.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <span className={`w-24 shrink-0 text-right font-mono font-semibold mt-0.5 ${row.tx.amount < 0 ? "text-destructive" : "text-primary"}`}>
+                      {formatBRL(row.tx.amount)}
+                    </span>
+                    <div className="relative w-28 shrink-0">
+                      <select
+                        value={row.tx.category}
+                        onChange={(e) => handleCategoryChange(idx, e.target.value as TransactionCategory)}
+                        disabled={row.ignored || reconcAction === "skip_duplicate"}
+                        className={`w-full appearance-none rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
+                          row.status === "pending" && !row.ignored
+                            ? "border-destructive/30 bg-destructive/5 text-destructive"
+                            : "border-border bg-popover text-foreground"
+                        }`}
+                      >
+                        {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    {row.status === "pending" && !row.ignored && reconcAction !== "skip_duplicate" ? (
+                      <button onClick={() => openCreateRule(idx)} title="Criar regra"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center">
+                        {!row.ignored && reconcAction !== "skip_duplicate" && <Sparkles className="h-3 w-3 text-primary/50" />}
+                      </div>
                     )}
                   </div>
-                  <span className={`w-24 shrink-0 text-right font-mono font-semibold mt-0.5 ${row.tx.amount < 0 ? "text-destructive" : "text-primary"}`}>
-                    {formatBRL(row.tx.amount)}
-                  </span>
-                  {/* Category selector */}
-                  <div className="relative w-28 shrink-0">
-                    <select
-                      value={row.tx.category}
-                      onChange={(e) => handleCategoryChange(idx, e.target.value as TransactionCategory)}
-                      disabled={row.ignored || reconcAction === "skip_duplicate"}
-                      className={`w-full appearance-none rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
-                        row.status === "pending" && !row.ignored
-                          ? "border-destructive/30 bg-destructive/5 text-destructive"
-                          : "border-border bg-popover text-foreground"
-                      }`}
-                    >
-                      {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                  </div>
-                  {/* Create rule button for pending */}
-                  {row.status === "pending" && !row.ignored && reconcAction !== "skip_duplicate" ? (
-                    <button onClick={() => openCreateRule(idx)} title="Criar regra"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  ) : (
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-                      {!row.ignored && reconcAction !== "skip_duplicate" && <Sparkles className="h-3 w-3 text-primary/50" />}
-                    </div>
-                  )}
-                </div>
                 );
-              })}
-              </div>
-            </ScrollArea>
+              };
+
+              return (
+                <div className="overflow-y-auto max-h-[60vh]">
+                  <div className="space-y-1 pr-3">
+                    {mainRows.map(renderRow)}
+                    {reconciledRows.length > 0 && (
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground hover:bg-muted/60 transition-colors">
+                          <ChevronsUpDown className="h-3.5 w-3.5" />
+                          <span>{reconciledRows.length} lançamento(s) já conciliado(s) — clique para ver</span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-1 mt-1">
+                          {reconciledRows.map(renderRow)}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </motion.div>
       )}

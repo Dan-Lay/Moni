@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
   CheckSquare, Square, Edit3, CalendarClock, CheckCircle2, Circle, GitMerge, FileUp, Copy,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +15,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AUTHOR_OPTIONS: { value: SpouseProfile | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -45,7 +50,7 @@ interface UnifiedRow {
 }
 
 const Transactions = () => {
-  const { data, updateTransaction, updatePlannedEntry } = useFinance();
+  const { data, updateTransaction, updatePlannedEntry, deleteTransaction, deleteTransactions } = useFinance();
   const categoryLabels = useCategoryLabels();
   const categoryOptions = useMemo(() => [
     { value: "all" as const, label: "Todas categorias" },
@@ -69,6 +74,7 @@ const Transactions = () => {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkCat, setBulkCat] = useState<TransactionCategory | "">("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "single" | "bulk"; id?: string } | null>(null);
 
   const priceAlerts = useMemo(() => getPriceAlerts(data.transactions), [data.transactions]);
 
@@ -243,6 +249,10 @@ const Transactions = () => {
           <button onClick={applyBulkEdit} disabled={!bulkCat || selectedIds.size === 0}
             className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 transition-all hover:bg-primary/90">
             Aplicar
+          </button>
+          <button onClick={() => setDeleteConfirm({ type: "bulk" })} disabled={selectedIds.size === 0}
+            className="rounded-lg bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground disabled:opacity-50 transition-all hover:bg-destructive/90 flex items-center gap-1">
+            <Trash2 className="h-3 w-3" /> Excluir Selecionados
           </button>
         </motion.div>
       )}
@@ -441,11 +451,18 @@ const Transactions = () => {
                           )}
                         </div>
                         {!bulkMode && (
-                          <button onClick={() => startEdit(t)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-                            aria-label="Editar">
-                            <PencilLine className="h-3.5 w-3.5" />
-                          </button>
+                          <>
+                            <button onClick={() => startEdit(t)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                              aria-label="Editar">
+                              <PencilLine className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => setDeleteConfirm({ type: "single", id: t.id })}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              aria-label="Excluir">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -457,6 +474,38 @@ const Transactions = () => {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm?.type === "bulk"
+                ? `Tem certeza que deseja excluir ${selectedIds.size} transação(ões)? Esta ação não pode ser desfeita.`
+                : "Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (deleteConfirm?.type === "single" && deleteConfirm.id) {
+                  await deleteTransaction(deleteConfirm.id);
+                } else if (deleteConfirm?.type === "bulk") {
+                  await deleteTransactions(Array.from(selectedIds));
+                  setSelectedIds(new Set());
+                  setBulkMode(false);
+                }
+                setDeleteConfirm(null);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

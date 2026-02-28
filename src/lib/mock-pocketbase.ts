@@ -96,6 +96,15 @@ export async function saveDesapegoItems(items: DesapegoItem[], _userId: string):
   desapegoItems = [...items];
 }
 
+export async function deleteTransaction(id: string): Promise<void> {
+  transactions = transactions.filter((t) => t.id !== id);
+}
+
+export async function deleteTransactions(ids: string[]): Promise<void> {
+  const idSet = new Set(ids);
+  transactions = transactions.filter((t) => !idSet.has(t.id));
+}
+
 // ── Mock auth ──
 export const mockUser = MOCK_USER;
 
