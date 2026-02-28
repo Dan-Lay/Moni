@@ -110,6 +110,8 @@ export function buildTransaction(
     establishment: extractEstablishment(description),
     spouseProfile,
     isAdditionalCard: additional,
+    cardNetwork: "other",
+    isConfirmed: false,
   };
 }
 

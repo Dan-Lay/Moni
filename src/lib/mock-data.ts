@@ -44,6 +44,8 @@ function tx(
     establishment,
     spouseProfile: opts.profile ?? "marido",
     isAdditionalCard: opts.additional ?? false,
+    cardNetwork: "other",
+    isConfirmed: false,
   };
 }
 
@@ -107,6 +109,10 @@ export const MOCK_CONFIG: FinancialConfig & Record<string, any> = {
   investFIIs: 300,
   investAcoes: 250,
   investBitcoin: 200,
+  milhasConversaoMastercardBRL: 2.0,
+  milhasConversaoMastercardUSD: 3.0,
+  milhasConversaoVisaBRL: 2.6,
+  milhasConversaoVisaUSD: 3.6,
 };
 
 export const MOCK_PLANNED_ENTRIES: PlannedEntry[] = [
