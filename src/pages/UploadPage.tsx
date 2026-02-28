@@ -5,7 +5,7 @@ import {
   GitMerge, Copy, FileUp, ChevronsUpDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { parseOFX } from "@/lib/parsers";
 import { useFinance } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,9 +89,6 @@ function parseAmount(raw: string): number {
 const UploadPage = () => {
   const { addTransactions, data, reload, updatePlannedEntry } = useFinance();
   const { user } = useAuth();
-  const csvRef = useRef<HTMLInputElement>(null);
-  const ofxRef = useRef<HTMLInputElement>(null);
-  const pdfRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [sourceHint, setSourceHint] = useState("santander");
   const [isLoading, setIsLoading] = useState(false);
@@ -421,7 +418,18 @@ const UploadPage = () => {
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }, [processFile]);
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) processFile(f); }, [processFile]);
+
+  // Native file picker — fully decoupled from React to eliminate Windows lag
+  const openNativePicker = useCallback((accept: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.onchange = (e) => {
+      const f = (e.target as HTMLInputElement).files?.[0];
+      if (f) processFile(f);
+    };
+    input.click();
+  }, [processFile]);
 
   const pendingCount = reviewRows.filter((r) => r.status === "pending" && !r.ignored).length;
   const autoCount = reviewRows.filter((r) => r.status === "auto" && !r.ignored).length;
@@ -471,19 +479,16 @@ const UploadPage = () => {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"><UploadIcon className="h-7 w-7 text-primary" /></div>
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
             <p className="mb-4 text-sm text-muted-foreground">Ou selecione pelo tipo de arquivo:</p>
-             <input ref={csvRef} type="file" className="hidden" accept=".csv,.txt" onChange={handleChange} />
-             <input ref={ofxRef} type="file" className="hidden" accept=".ofx,.qfx" onChange={handleChange} />
-             <input ref={pdfRef} type="file" className="hidden" accept="application/pdf" onChange={handleChange} />
              <div className="flex flex-wrap gap-3 justify-center">
-               <button onClick={() => csvRef.current?.click()}
+               <button onClick={() => openNativePicker(".csv,.txt")}
                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
                  <FileSpreadsheet className="h-4 w-4" /> Importar Extrato CSV
                </button>
-               <button onClick={() => ofxRef.current?.click()}
+               <button onClick={() => openNativePicker(".ofx,.qfx")}
                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
                  <FileText className="h-4 w-4" /> Importar Extrato OFX
                </button>
-               <button onClick={() => pdfRef.current?.click()}
+               <button onClick={() => openNativePicker("application/pdf")}
                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
                  <FileText className="h-4 w-4" /> Importar Fatura PDF
                </button>
@@ -688,8 +693,8 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="max-h-[50vh] overflow-y-auto block pr-2">
-                  <div className="space-y-1 pr-3">
+                <div className="flex-1 w-full overflow-y-auto h-[400px] min-h-[300px] border rounded-md p-2">
+                  <div className="space-y-1 pr-1">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
                       <Collapsible>
