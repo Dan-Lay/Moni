@@ -46,6 +46,7 @@ function tx(
     isAdditionalCard: opts.additional ?? false,
     cardNetwork: "other",
     isConfirmed: false,
+    reconciliationStatus: "pendente",
   };
 }
 

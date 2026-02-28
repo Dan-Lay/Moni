@@ -25,6 +25,7 @@ export function mapTransaction(r: Record<string, any>): Transaction {
     isAdditionalCard: !!r.is_additional_card,
     cardNetwork: (r.card_network || "mastercard") as CardNetwork,
     isConfirmed: !!r.is_confirmed,
+    reconciliationStatus: (r.reconciliation_status || "pendente") as any,
   };
 }
 
@@ -119,6 +120,7 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
     is_additional_card: tx.isAdditionalCard,
     card_network: tx.cardNetwork,
     is_confirmed: tx.isConfirmed,
+    reconciliation_status: tx.reconciliationStatus || "novo",
     user_id: userId,
   }));
 
