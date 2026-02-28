@@ -330,7 +330,7 @@ const UploadPage = () => {
           return r.tx.category !== originalCat;
         });
         for (const r of changedRows) {
-          const keyword = (r.tx.establishment || r.tx.description).substring(0, 30);
+          const keyword = r.tx.description;
           upsertCategorizationRule(keyword, r.tx.category, r.tx.spouseProfile, user.id, user.familyId);
         }
       }
@@ -354,7 +354,7 @@ const UploadPage = () => {
     setRuleDialog({
       open: true,
       rowIdx,
-      keyword: words.toLowerCase().substring(0, 30),
+      keyword: words.toLowerCase(),
       category: row.tx.category,
       profile: row.tx.spouseProfile,
     });
