@@ -38,6 +38,8 @@ interface FinanceContextType {
   setProfileFilter: (p: ProfileFilter) => void;
   addTransactions: (txs: Transaction[]) => Promise<void>;
   updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
+  deleteTransactions: (ids: string[]) => Promise<void>;
   updateConfig: (partial: Partial<FinancialConfig>) => Promise<void>;
   updateDesapego: (items: DesapegoItem[]) => Promise<void>;
   updateJantares: (count: number) => Promise<void>;
@@ -307,6 +309,23 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [api]);
 
+  const handleDeleteTransaction = useCallback(async (id: string) => {
+    await api.deleteTransaction(id);
+    setData((prev) => ({
+      ...prev,
+      transactions: prev.transactions.filter((t) => t.id !== id),
+    }));
+  }, [api]);
+
+  const handleDeleteTransactions = useCallback(async (ids: string[]) => {
+    await api.deleteTransactions(ids);
+    const idSet = new Set(ids);
+    setData((prev) => ({
+      ...prev,
+      transactions: prev.transactions.filter((t) => !idSet.has(t.id)),
+    }));
+  }, [api]);
+
   const reload = useCallback(() => {
     loadData();
   }, [loadData]);
@@ -317,6 +336,8 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         data, finance, isLoading,
         profileFilter, setProfileFilter,
         addTransactions, updateTransaction: handleUpdateTransaction,
+        deleteTransaction: handleDeleteTransaction,
+        deleteTransactions: handleDeleteTransactions,
         updateConfig, updateDesapego, updateJantares, updateCinemas,
         addPlannedEntry: handleAddPlannedEntry,
         updatePlannedEntry: handleUpdatePlannedEntry,
