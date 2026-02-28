@@ -16,15 +16,14 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(
-      "https://api.frankfurter.app/latest?from=BRL&to=USD,EUR",
+      "https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL",
       { signal: controller.signal }
     );
     if (!res.ok) throw new Error("status " + res.status);
     const json = await res.json();
-    const rates = json?.rates ?? {};
     return {
-      usdBrl: rates.USD ? Math.round((1 / rates.USD) * 10000) / 10000 : null,
-      eurBrl: rates.EUR ? Math.round((1 / rates.EUR) * 10000) / 10000 : null,
+      usdBrl: json?.USDBRL?.bid ? parseFloat(json.USDBRL.bid) : null,
+      eurBrl: json?.EURBRL?.bid ? parseFloat(json.EURBRL.bid) : null,
     };
   } finally {
     clearTimeout(timeout);

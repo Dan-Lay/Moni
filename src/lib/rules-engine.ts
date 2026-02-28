@@ -10,14 +10,24 @@ export interface CategorizationRule {
   category: TransactionCategory;
   profile: SpouseProfile;
   userId: string;
+  familyId: string | null;
 }
 
-export async function fetchCategorizationRules(userId: string): Promise<CategorizationRule[]> {
+export async function fetchCategorizationRules(
+  userId: string,
+  familyId?: string | null
+): Promise<CategorizationRule[]> {
   try {
-    const { data, error } = await supabase
-      .from("categorization_rules")
-      .select("*")
-      .eq("user_id", userId);
+    let query = supabase.from("categorization_rules").select("*");
+
+    if (familyId) {
+      // Fetch rules for user OR family
+      query = query.or(`user_id.eq.${userId},family_id.eq.${familyId}`);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
     if (error) return [];
     return (data || []).map((r) => ({
       id: r.id,
@@ -25,6 +35,7 @@ export async function fetchCategorizationRules(userId: string): Promise<Categori
       category: (r.category || "outros") as TransactionCategory,
       profile: (r.profile || "familia") as SpouseProfile,
       userId: r.user_id || "",
+      familyId: r.family_id || null,
     }));
   } catch {
     return [];
@@ -35,14 +46,22 @@ export async function createCategorizationRule(
   keyword: string,
   category: TransactionCategory,
   profile: SpouseProfile,
-  userId: string
+  userId: string,
+  familyId?: string | null
 ): Promise<CategorizationRule> {
-  const { data, error } = await supabase.from("categorization_rules").insert({
+  const row: Record<string, unknown> = {
     keyword: keyword.toLowerCase(),
     category,
     profile,
     user_id: userId,
-  }).select().single();
+  };
+  if (familyId) row.family_id = familyId;
+
+  const { data, error } = await supabase
+    .from("categorization_rules")
+    .insert(row)
+    .select()
+    .single();
   if (error) throw error;
   return {
     id: data.id,
@@ -50,7 +69,52 @@ export async function createCategorizationRule(
     category: data.category as TransactionCategory,
     profile: data.profile as SpouseProfile,
     userId: data.user_id,
+    familyId: data.family_id || null,
   };
+}
+
+/**
+ * Upsert a rule by keyword+family_id to avoid duplicates.
+ * If no familyId, falls back to keyword+user_id.
+ */
+export async function upsertCategorizationRule(
+  keyword: string,
+  category: TransactionCategory,
+  profile: SpouseProfile,
+  userId: string,
+  familyId?: string | null
+): Promise<void> {
+  const kw = keyword.toLowerCase().trim();
+  if (!kw) return;
+
+  try {
+    // Check if rule already exists
+    let query = supabase
+      .from("categorization_rules")
+      .select("id")
+      .eq("keyword", kw);
+
+    if (familyId) {
+      query = query.eq("family_id", familyId);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data: existing } = await query.maybeSingle();
+
+    if (existing) {
+      // Update existing rule
+      await supabase
+        .from("categorization_rules")
+        .update({ category, profile })
+        .eq("id", existing.id);
+    } else {
+      // Create new
+      await createCategorizationRule(kw, category, profile, userId, familyId);
+    }
+  } catch (err) {
+    console.warn("[Moni] upsert rule failed:", err);
+  }
 }
 
 export function matchRule(
