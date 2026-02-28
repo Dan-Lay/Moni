@@ -173,7 +173,7 @@ const Transactions = () => {
 
     // Learning: upsert rule when category was changed
     if (categoryChanged && user?.id) {
-      const keyword = (originalRow.establishment || originalRow.description || "").substring(0, 30);
+      const keyword = originalRow.description || "";
       upsertCategorizationRule(keyword, editCat, editAuthor, user.id, user.familyId);
     }
 
