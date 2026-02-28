@@ -86,8 +86,8 @@ export const DollarDisney = () => {
             {isEuropa ? "Euro Europa" : "Dólar Disney"}
           </h3>
           {isLive
-            ? <Wifi className="h-3 w-3 text-primary" title="Cotação ao vivo" />
-            : <WifiOff className="h-3 w-3 text-muted-foreground/50" title="Cotação manual" />
+            ? <span title="Cotação ao vivo"><Wifi className="h-3 w-3 text-primary" /></span>
+            : <span title="Cotação manual"><WifiOff className="h-3 w-3 text-muted-foreground/50" /></span>
           }
         </div>
 
