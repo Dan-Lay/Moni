@@ -247,64 +247,7 @@ const UploadPage = () => {
     }
     console.timeEnd("[Moni] categorize");
 
-    // ── Bank Reconciliation (Supabase) ──
-    let duplicatesCount = 0;
-    let reconciledBankCount = 0;
-
-    if (user?.id) {
-      setLoadingMsg("Conciliando com base de dados...");
-      await sleep(0);
-      console.time("[Moni] bank-reconcile");
-
-      const txsToReconcile = rows.map((r) => r.tx);
-      const { toInsert, duplicates, reconciled: reconciledBank, results: reconcResults } = await reconcileBatch(
-        txsToReconcile,
-        user.id,
-        (done, total) => setLoadingMsg(`Conciliando... ${done} de ${total}`),
-      );
-
-      duplicatesCount = duplicates;
-      reconciledBankCount = reconciledBank;
-
-      // Update rows with reconciliation results
-      for (let i = 0; i < rows.length; i++) {
-        const result = reconcResults[i];
-        if (result) {
-          rows[i] = {
-            ...rows[i],
-            reconciliation: result,
-            tx: result.transaction,
-            ignored: result.action === "skip_duplicate" ? true : rows[i].ignored,
-          };
-        }
-      }
-
-      console.timeEnd("[Moni] bank-reconcile");
-    }
-
-    // ── Planned entries reconciliation (existing logic) ──
-    setLoadingMsg("Conciliando com lançamentos previstos...");
-    await sleep(0);
-
-    console.time("[Moni] reconcile-planned");
-    const planned = data.plannedEntries ?? [];
-    const reconcileJobs: Promise<boolean>[] = [];
-    for (const row of rows) {
-      if (row.reconciliation?.action === "skip_duplicate") continue;
-      const matchId = tryReconcile(row.tx, planned);
-      if (matchId) {
-        reconcileJobs.push(
-          updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(row.tx.amount) as any })
-            .then(() => true)
-            .catch(() => false)
-        );
-      }
-    }
-    const reconcileResults = await Promise.allSettled(reconcileJobs);
-    const reconciledPlannedCount = reconcileResults.filter(
-      (r) => r.status === "fulfilled" && r.value === true
-    ).length;
-    console.timeEnd("[Moni] reconcile-planned");
+    // Reconciliation is deferred to confirm-time — skip here during preview
 
     const spouseCount = rows.filter((r) => r.tx.isAdditionalCard).length;
     const totalMiles = rows.reduce((a, r) => a + r.tx.milesGenerated, 0);
@@ -314,41 +257,82 @@ const UploadPage = () => {
       miles: totalMiles,
       source: fileName,
       spouseCount,
-      reconciled: reconciledPlannedCount + reconciledBankCount,
-      duplicates: duplicatesCount,
+      reconciled: 0,
+      duplicates: 0,
     });
 
     setReviewRows(rows);
     setShowReview(true);
     console.timeEnd("[Moni] upload-total");
-    if (reconciledPlannedCount > 0 || reconciledBankCount > 0) reload();
-  }, [rules, user?.id, data.plannedEntries, updatePlannedEntry, reload]);
+  }, [rules, user?.id, data.config.cotacaoDolar]);
 
   // ── Confirm import ──
   const handleConfirmImport = useCallback(async () => {
     setIsLoading(true);
-    setLoadingMsg("Salvando transações...");
-    // Only import rows that are new (not duplicates or already reconciled in DB)
-    const toImport = reviewRows.filter((r) => {
+
+    // Filter rows eligible for import
+    const eligible = reviewRows.filter((r) => {
       if (r.ignored) return false;
       if (onlyCategorized && r.status !== "auto") return false;
-      // Skip duplicates and already-reconciled (they were updated in-place)
-      if (r.reconciliation?.action === "skip_duplicate") return false;
-      if (r.reconciliation?.action === "reconciled_manual") return false;
       return true;
     });
-    const txs = toImport.map((r) => r.tx);
+    const txs = eligible.map((r) => r.tx);
+
+    if (txs.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await addTransactions(txs);
+      // ── Run reconciliation NOW (at confirm-time) ──
+      let toInsertTxs = txs;
+
+      if (user?.id) {
+        setLoadingMsg("Conciliando com base de dados...");
+        const { toInsert, duplicates, reconciled: reconciledBank } = await reconcileBatch(
+          txs,
+          user.id,
+          (done, total) => setLoadingMsg(`Conciliando... ${done} de ${total}`),
+        );
+        toInsertTxs = toInsert;
+
+        // ── Planned entries reconciliation ──
+        setLoadingMsg("Conciliando com lançamentos previstos...");
+        const planned = data.plannedEntries ?? [];
+        const reconcileJobs: Promise<boolean>[] = [];
+        for (const tx of toInsertTxs) {
+          const matchId = tryReconcile(tx, planned);
+          if (matchId) {
+            reconcileJobs.push(
+              updatePlannedEntry(matchId, { conciliado: true, realAmount: Math.abs(tx.amount) as any })
+                .then(() => true)
+                .catch(() => false)
+            );
+          }
+        }
+        await Promise.allSettled(reconcileJobs);
+
+        if (duplicates > 0 || reconciledBank > 0) {
+          setImportSummary((prev) => prev ? { ...prev, duplicates, reconciled: reconciledBank } : prev);
+        }
+      }
+
+      // ── Insert only truly new transactions ──
+      if (toInsertTxs.length > 0) {
+        setLoadingMsg(`Salvando ${toInsertTxs.length} transações...`);
+        await addTransactions(toInsertTxs);
+      }
+
       setShowReview(false);
       setReviewRows([]);
       setOnlyCategorized(false);
+      reload();
     } catch {
       setError("Erro ao salvar transações. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
-  }, [reviewRows, addTransactions, onlyCategorized]);
+  }, [reviewRows, addTransactions, onlyCategorized, user?.id, data.plannedEntries, updatePlannedEntry, reload]);
 
   // ── Create rule dialog actions ──
   const openCreateRule = (rowIdx: number) => {
@@ -470,9 +454,22 @@ const UploadPage = () => {
             className={`glass-card flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border"}`}>
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"><UploadIcon className="h-7 w-7 text-primary" /></div>
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
-            <p className="mb-6 text-sm text-muted-foreground">OFX, CSV e PDF suportados</p>
-            <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,application/pdf" className="hidden" onChange={handleChange} />
-            <button onClick={() => fileRef.current?.click()} className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">Selecionar Arquivo</button>
+            <p className="mb-4 text-sm text-muted-foreground">Ou selecione pelo tipo de arquivo:</p>
+            <input ref={fileRef} type="file" className="hidden" onChange={handleChange} />
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button onClick={() => { fileRef.current?.setAttribute("accept", ".csv"); fileRef.current?.click(); }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                <FileSpreadsheet className="h-4 w-4" /> Importar Extrato CSV
+              </button>
+              <button onClick={() => { fileRef.current?.setAttribute("accept", ".ofx,.qfx"); fileRef.current?.click(); }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                <FileText className="h-4 w-4" /> Importar Extrato OFX
+              </button>
+              <button onClick={() => { fileRef.current?.setAttribute("accept", "application/pdf"); fileRef.current?.click(); }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                <FileText className="h-4 w-4" /> Importar Fatura PDF
+              </button>
+            </div>
           </motion.div>
 
           {/* Format info */}
@@ -673,7 +670,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="overflow-y-auto max-h-[60vh]">
+                <div className="overflow-y-auto" style={{ maxHeight: "400px" }}>
                   <div className="space-y-1 pr-3">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (

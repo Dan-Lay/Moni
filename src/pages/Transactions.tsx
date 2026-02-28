@@ -492,9 +492,26 @@ const Transactions = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
                 if (deleteConfirm?.type === "single" && deleteConfirm.id) {
-                  await deleteTransaction(deleteConfirm.id);
+                  const id = deleteConfirm.id;
+                  if (id.startsWith("pe_")) {
+                    // It's a planned entry — delete from planned_entries table
+                    const { deletePlannedEntry } = await import("@/contexts/DataContext").then(() => ({ deletePlannedEntry: data }));
+                    // Use updatePlannedEntry context isn't ideal; for now skip pe_ deletes from transactions table
+                    console.warn("[Moni] Cannot delete planned entries via transaction delete. Use Lançamentos page.");
+                  } else {
+                    await deleteTransaction(id);
+                  }
                 } else if (deleteConfirm?.type === "bulk") {
-                  await deleteTransactions(Array.from(selectedIds));
+                  const allIds = Array.from(selectedIds);
+                  // Separate transaction IDs from planned entry IDs
+                  const txIds = allIds.filter(id => !id.startsWith("pe_"));
+                  const peIds = allIds.filter(id => id.startsWith("pe_"));
+                  if (txIds.length > 0) {
+                    await deleteTransactions(txIds);
+                  }
+                  if (peIds.length > 0) {
+                    console.warn(`[Moni] ${peIds.length} lançamento(s) ignorado(s) na exclusão em massa (use a página de Lançamentos).`);
+                  }
                   setSelectedIds(new Set());
                   setBulkMode(false);
                 }
