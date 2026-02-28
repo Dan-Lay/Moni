@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
-import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS } from "@/lib/types";
+import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS, ReconciliationStatus, RECONCILIATION_LABELS } from "@/lib/types";
 import { getPriceAlerts } from "@/lib/storage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
-  CheckSquare, Square, Edit3, CalendarClock, CheckCircle2, Circle,
+  CheckSquare, Square, Edit3, CalendarClock, CheckCircle2, Circle, GitMerge, FileUp, Copy,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +41,7 @@ interface UnifiedRow {
   milesGenerated?: number;
   establishment?: string;
   isConfirmed?: boolean;
+  reconciliationStatus?: ReconciliationStatus;
 }
 
 const Transactions = () => {
@@ -89,6 +90,7 @@ const Transactions = () => {
         milesGenerated: t.milesGenerated,
         establishment: t.establishment,
         isConfirmed: t.isConfirmed,
+        reconciliationStatus: t.reconciliationStatus,
       }));
 
     const peRows: UnifiedRow[] = (data.plannedEntries ?? []).map((e) => ({
@@ -403,6 +405,19 @@ const Transactions = () => {
                           )}>
                             {isPlanned ? "Lanç." : "Upload"}
                           </Badge>
+                          {/* Reconciliation status badge */}
+                          {t.reconciliationStatus && t.reconciliationStatus !== "pendente" && (
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4",
+                              t.reconciliationStatus === "conciliado_auto" && "border-primary/40 text-primary",
+                              t.reconciliationStatus === "ja_conciliado" && "border-muted-foreground/40 text-muted-foreground",
+                              t.reconciliationStatus === "novo" && "border-blue-500/40 text-blue-400",
+                            )}>
+                              {t.reconciliationStatus === "conciliado_auto" && <GitMerge className="h-2.5 w-2.5 mr-0.5" />}
+                              {t.reconciliationStatus === "ja_conciliado" && <Copy className="h-2.5 w-2.5 mr-0.5" />}
+                              {t.reconciliationStatus === "novo" && <FileUp className="h-2.5 w-2.5 mr-0.5" />}
+                              {RECONCILIATION_LABELS[t.reconciliationStatus]}
+                            </Badge>
+                          )}
                           {isPlanned && t.recurrence && t.recurrence !== "unico" && (
                             <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                               <CalendarClock className="h-2.5 w-2.5" /> {RECURRENCE_LABELS[t.recurrence as keyof typeof RECURRENCE_LABELS]}

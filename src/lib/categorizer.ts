@@ -112,6 +112,7 @@ export function buildTransaction(
     isAdditionalCard: additional,
     cardNetwork: "other",
     isConfirmed: false,
+    reconciliationStatus: "pendente",
   };
 }
 

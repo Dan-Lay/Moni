@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   establishment      TEXT DEFAULT '',
   spouse_profile     TEXT DEFAULT 'familia' CHECK (spouse_profile IN ('marido', 'esposa', 'familia')),
   is_additional_card BOOLEAN DEFAULT FALSE,
+  card_network       TEXT DEFAULT 'other',
+  is_confirmed       BOOLEAN DEFAULT FALSE,
+  reconciliation_status TEXT DEFAULT 'pendente' CHECK (reconciliation_status IN ('novo', 'ja_conciliado', 'conciliado_auto', 'pendente')),
   created_at         TIMESTAMPTZ DEFAULT NOW()
 );
 

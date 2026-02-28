@@ -2,15 +2,17 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload as UploadIcon, FileText, FileSpreadsheet, CheckCircle, AlertCircle,
   Plane, Link2, Loader2, Sparkles, Plus, ChevronDown, EyeOff, Eye,
+  GitMerge, Copy, FileUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { parseOFX } from "@/lib/parsers";
 import { useFinance } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Transaction, TransactionCategory, CATEGORY_LABELS, formatMiles, formatBRL, SpouseProfile } from "@/lib/types";
+import { Transaction, TransactionCategory, CATEGORY_LABELS, formatMiles, formatBRL, SpouseProfile, ReconciliationStatus, RECONCILIATION_LABELS } from "@/lib/types";
 import { tryReconcile } from "@/lib/storage";
 import { buildTransaction, categorizeTransaction } from "@/lib/categorizer";
+import { reconcileBatch, ReconciliationResult } from "@/lib/reconciliation";
 import {
   CategorizationRule, fetchCategorizationRules, createCategorizationRule,
   matchRule, ColumnMapping, saveColumnMapping, loadColumnMapping,
@@ -18,6 +20,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+
 
 // ── Types for review rows ──
 interface ReviewRow {
@@ -25,6 +31,7 @@ interface ReviewRow {
   ruleMatch: CategorizationRule | null;
   status: "auto" | "pending";
   ignored: boolean;
+  reconciliation?: ReconciliationResult;
 }
 
 // ── Chunked processing helper ──
@@ -101,7 +108,7 @@ const UploadPage = () => {
   const [reviewRows, setReviewRows] = useState<ReviewRow[]>([]);
   const [rules, setRules] = useState<CategorizationRule[]>([]);
   const [showReview, setShowReview] = useState(false);
-  const [importSummary, setImportSummary] = useState<{ count: number; miles: number; source: string; spouseCount: number; reconciled: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ count: number; miles: number; source: string; spouseCount: number; reconciled: number; duplicates: number } | null>(null);
   const [onlyCategorized, setOnlyCategorized] = useState(false);
 
   // ── Create Rule dialog ──
@@ -193,7 +200,7 @@ const UploadPage = () => {
     setIsLoading(false);
   }, [csvContent, dateCol, descCol, amountCol, sourceHint, data.config.cotacaoDolar]);
 
-  // ── Core: process transactions with rule engine (chunked) ──
+  // ── Core: process transactions with rule engine + bank reconciliation ──
   const processTransactionsWithRules = useCallback(async (txs: Transaction[], fileName: string) => {
     setLoadingMsg("Buscando regras de categorização...");
     console.time("[Moni] upload-total");
@@ -236,18 +243,54 @@ const UploadPage = () => {
       }
       const done = Math.min(i + CHUNK_SIZE, txs.length);
       setLoadingMsg(`Categorizando... ${done} de ${txs.length}`);
-      await sleep(0); // yield to UI on every chunk regardless of size
+      await sleep(0);
     }
     console.timeEnd("[Moni] categorize");
 
+    // ── Bank Reconciliation (Supabase) ──
+    let duplicatesCount = 0;
+    let reconciledBankCount = 0;
+
+    if (user?.id) {
+      setLoadingMsg("Conciliando com base de dados...");
+      await sleep(0);
+      console.time("[Moni] bank-reconcile");
+
+      const txsToReconcile = rows.map((r) => r.tx);
+      const { toInsert, duplicates, reconciled: reconciledBank, results: reconcResults } = await reconcileBatch(
+        txsToReconcile,
+        user.id,
+        (done, total) => setLoadingMsg(`Conciliando... ${done} de ${total}`),
+      );
+
+      duplicatesCount = duplicates;
+      reconciledBankCount = reconciledBank;
+
+      // Update rows with reconciliation results
+      for (let i = 0; i < rows.length; i++) {
+        const result = reconcResults[i];
+        if (result) {
+          rows[i] = {
+            ...rows[i],
+            reconciliation: result,
+            tx: result.transaction,
+            ignored: result.action === "skip_duplicate" ? true : rows[i].ignored,
+          };
+        }
+      }
+
+      console.timeEnd("[Moni] bank-reconcile");
+    }
+
+    // ── Planned entries reconciliation (existing logic) ──
     setLoadingMsg("Conciliando com lançamentos previstos...");
     await sleep(0);
 
-    // Reconciliation – parallel, fire all at once
-    console.time("[Moni] reconcile");
+    console.time("[Moni] reconcile-planned");
     const planned = data.plannedEntries ?? [];
     const reconcileJobs: Promise<boolean>[] = [];
     for (const row of rows) {
+      if (row.reconciliation?.action === "skip_duplicate") continue;
       const matchId = tryReconcile(row.tx, planned);
       if (matchId) {
         reconcileJobs.push(
@@ -258,10 +301,10 @@ const UploadPage = () => {
       }
     }
     const reconcileResults = await Promise.allSettled(reconcileJobs);
-    const reconciledCount = reconcileResults.filter(
+    const reconciledPlannedCount = reconcileResults.filter(
       (r) => r.status === "fulfilled" && r.value === true
     ).length;
-    console.timeEnd("[Moni] reconcile");
+    console.timeEnd("[Moni] reconcile-planned");
 
     const spouseCount = rows.filter((r) => r.tx.isAdditionalCard).length;
     const totalMiles = rows.reduce((a, r) => a + r.tx.milesGenerated, 0);
@@ -271,20 +314,29 @@ const UploadPage = () => {
       miles: totalMiles,
       source: fileName,
       spouseCount,
-      reconciled: reconciledCount,
+      reconciled: reconciledPlannedCount + reconciledBankCount,
+      duplicates: duplicatesCount,
     });
 
     setReviewRows(rows);
     setShowReview(true);
     console.timeEnd("[Moni] upload-total");
-    if (reconciledCount > 0) reload();
+    if (reconciledPlannedCount > 0 || reconciledBankCount > 0) reload();
   }, [rules, user?.id, data.plannedEntries, updatePlannedEntry, reload]);
 
   // ── Confirm import ──
   const handleConfirmImport = useCallback(async () => {
     setIsLoading(true);
     setLoadingMsg("Salvando transações...");
-    const toImport = reviewRows.filter((r) => !r.ignored && (!onlyCategorized || r.status === "auto"));
+    // Only import rows that are new (not duplicates or already reconciled in DB)
+    const toImport = reviewRows.filter((r) => {
+      if (r.ignored) return false;
+      if (onlyCategorized && r.status !== "auto") return false;
+      // Skip duplicates and already-reconciled (they were updated in-place)
+      if (r.reconciliation?.action === "skip_duplicate") return false;
+      if (r.reconciliation?.action === "reconciled_manual") return false;
+      return true;
+    });
     const txs = toImport.map((r) => r.tx);
     try {
       await addTransactions(txs);
@@ -374,7 +426,10 @@ const UploadPage = () => {
   const pendingCount = reviewRows.filter((r) => r.status === "pending" && !r.ignored).length;
   const autoCount = reviewRows.filter((r) => r.status === "auto" && !r.ignored).length;
   const ignoredCount = reviewRows.filter((r) => r.ignored).length;
-  const importableCount = onlyCategorized ? autoCount : (reviewRows.length - ignoredCount);
+  const duplicateCount = reviewRows.filter((r) => r.reconciliation?.action === "skip_duplicate").length;
+  const reconciledAutoCount = reviewRows.filter((r) => r.reconciliation?.action === "reconciled_manual").length;
+  const newCount = reviewRows.filter((r) => r.reconciliation?.action === "new" && !r.ignored).length;
+  const importableCount = onlyCategorized ? autoCount : (reviewRows.filter((r) => !r.ignored && r.reconciliation?.action !== "skip_duplicate" && r.reconciliation?.action !== "reconciled_manual").length);
 
   return (
     <AppLayout>
@@ -503,9 +558,24 @@ const UploadPage = () => {
                       <p className="text-[10px] text-muted-foreground">pendentes</p>
                     </div>
                   </div>
-                  {importSummary.reconciled > 0 && (
-                    <p className="mt-2 text-[11px] text-primary">✓ {importSummary.reconciled} conciliado(s) com lançamentos previstos</p>
-                  )}
+                  {/* Reconciliation stats */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {importSummary.duplicates > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-muted-foreground/40 text-muted-foreground">
+                        <Copy className="h-2.5 w-2.5 mr-1" /> {importSummary.duplicates} duplicado(s)
+                      </Badge>
+                    )}
+                    {importSummary.reconciled > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                        <GitMerge className="h-2.5 w-2.5 mr-1" /> {importSummary.reconciled} conciliado(s)
+                      </Badge>
+                    )}
+                    {newCount > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-400">
+                        <FileUp className="h-2.5 w-2.5 mr-1" /> {newCount} novo(s)
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -531,17 +601,40 @@ const UploadPage = () => {
                 </button>
               </div>
             </div>
-            <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
-              {reviewRows.map((row, idx) => (
-                <div key={row.tx.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-opacity ${row.ignored ? "opacity-40" : ""} ${row.status === "pending" && !row.ignored ? "bg-destructive/5" : "bg-secondary/30"}`}>
+            <ScrollArea className="max-h-[55vh]">
+              <div className="space-y-1 pr-3">
+              {reviewRows.map((row, idx) => {
+                const reconcAction = row.reconciliation?.action;
+                const reconcBadge = reconcAction === "skip_duplicate"
+                  ? { label: "Já Conciliado", cls: "border-muted-foreground/40 text-muted-foreground bg-muted/30" }
+                  : reconcAction === "reconciled_manual"
+                  ? { label: "Conciliado Auto", cls: "border-primary/40 text-primary bg-primary/10" }
+                  : reconcAction === "new"
+                  ? { label: "Novo (Upload)", cls: "border-blue-500/40 text-blue-400 bg-blue-500/10" }
+                  : null;
+
+                return (
+                <div key={`${row.tx.id}_${idx}`} className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs transition-opacity ${row.ignored ? "opacity-40" : ""} ${row.status === "pending" && !row.ignored ? "bg-destructive/5" : "bg-secondary/30"}`}>
                   {/* Ignore toggle */}
                   <button onClick={() => handleToggleIgnore(idx)} title={row.ignored ? "Restaurar" : "Ignorar"}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors">
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors mt-0.5">
                     {row.ignored ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                   </button>
-                  <span className="w-20 shrink-0 text-muted-foreground">{row.tx.date}</span>
-                  <span className={`min-w-0 flex-1 truncate ${row.ignored ? "line-through" : ""}`} title={row.tx.description}>{row.tx.treatedName || row.tx.description}</span>
-                  <span className={`w-24 shrink-0 text-right font-mono font-semibold ${row.tx.amount < 0 ? "text-destructive" : "text-primary"}`}>
+                  <span className="w-20 shrink-0 text-muted-foreground mt-0.5">{row.tx.date}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-xs font-medium break-words ${row.ignored ? "line-through" : ""}`} title={row.tx.description}>
+                      {row.tx.treatedName || row.tx.description}
+                    </p>
+                    {reconcBadge && (
+                      <Badge variant="outline" className={`mt-1 text-[9px] px-1.5 py-0 h-4 ${reconcBadge.cls}`}>
+                        {reconcAction === "skip_duplicate" && <Copy className="h-2 w-2 mr-0.5" />}
+                        {reconcAction === "reconciled_manual" && <GitMerge className="h-2 w-2 mr-0.5" />}
+                        {reconcAction === "new" && <FileUp className="h-2 w-2 mr-0.5" />}
+                        {reconcBadge.label}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className={`w-24 shrink-0 text-right font-mono font-semibold mt-0.5 ${row.tx.amount < 0 ? "text-destructive" : "text-primary"}`}>
                     {formatBRL(row.tx.amount)}
                   </span>
                   {/* Category selector */}
@@ -549,7 +642,7 @@ const UploadPage = () => {
                     <select
                       value={row.tx.category}
                       onChange={(e) => handleCategoryChange(idx, e.target.value as TransactionCategory)}
-                      disabled={row.ignored}
+                      disabled={row.ignored || reconcAction === "skip_duplicate"}
                       className={`w-full appearance-none rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
                         row.status === "pending" && !row.ignored
                           ? "border-destructive/30 bg-destructive/5 text-destructive"
@@ -563,19 +656,21 @@ const UploadPage = () => {
                     <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                   </div>
                   {/* Create rule button for pending */}
-                  {row.status === "pending" && !row.ignored ? (
+                  {row.status === "pending" && !row.ignored && reconcAction !== "skip_duplicate" ? (
                     <button onClick={() => openCreateRule(idx)} title="Criar regra"
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   ) : (
                     <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-                      {!row.ignored && <Sparkles className="h-3 w-3 text-primary/50" />}
+                      {!row.ignored && reconcAction !== "skip_duplicate" && <Sparkles className="h-3 w-3 text-primary/50" />}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+                );
+              })}
+              </div>
+            </ScrollArea>
           </div>
         </motion.div>
       )}

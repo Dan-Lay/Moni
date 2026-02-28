@@ -33,6 +33,19 @@ export type TransactionSource = "santander" | "bradesco" | "nubank" | "unknown";
 
 export type CardNetwork = "mastercard" | "visa" | "elo" | "other";
 
+export type ReconciliationStatus =
+  | "novo"                    // Cenário C: novo registo via upload
+  | "ja_conciliado"           // Cenário A: duplicado de upload anterior
+  | "conciliado_auto"         // Cenário B: conciliado com lançamento manual
+  | "pendente";               // default — sem conciliação
+
+export const RECONCILIATION_LABELS: Record<ReconciliationStatus, string> = {
+  novo: "Conciliado (Upload)",
+  ja_conciliado: "Já Conciliado",
+  conciliado_auto: "Conciliado Auto",
+  pendente: "Pendente",
+};
+
 // ── Recurrence types for manual entries ──
 export type RecurrenceType = "unico" | "diario" | "quinzenal" | "mensal" | "anual";
 
@@ -118,6 +131,7 @@ export interface Transaction {
   readonly isAdditionalCard: boolean;   // true = cartão adicional (Esposa)
   readonly cardNetwork: CardNetwork;    // bandeira do cartão
   readonly isConfirmed: boolean;        // true = categoria confirmada pelo usuário
+  readonly reconciliationStatus: ReconciliationStatus; // status de conciliação bancária
 }
 
 export interface FinancialConfig {
