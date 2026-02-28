@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS, ReconciliationStatus, RECONCILIATION_LABELS } from "@/lib/types";
 import { getPriceAlerts } from "@/lib/storage";
+import { upsertCategorizationRule } from "@/lib/rules-engine";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, PencilLine, Check, X, AlertTriangle, Globe, TrendingUp,
@@ -51,6 +53,7 @@ interface UnifiedRow {
 
 const Transactions = () => {
   const { data, updateTransaction, updatePlannedEntry, deleteTransaction, deleteTransactions } = useFinance();
+  const { user } = useAuth();
   const categoryLabels = useCategoryLabels();
   const categoryOptions = useMemo(() => [
     { value: "all" as const, label: "Todas categorias" },
@@ -145,6 +148,10 @@ const Transactions = () => {
     if (!editingId) return;
     const parsed = parseFloat(editAmount.replace(",", "."));
 
+    // Find original row to detect category change
+    const originalRow = unifiedRows.find((r) => r.id === editingId);
+    const categoryChanged = originalRow && originalRow.category !== editCat;
+
     if (editSource === "lancamento") {
       const realId = editingId.replace("pe_", "");
       await updatePlannedEntry(realId, {
@@ -163,6 +170,13 @@ const Transactions = () => {
         isConfirmed: true,
       });
     }
+
+    // Learning: upsert rule when category was changed
+    if (categoryChanged && user?.id) {
+      const keyword = (originalRow.establishment || originalRow.description || "").substring(0, 30);
+      upsertCategorizationRule(keyword, editCat, editAuthor, user.id, user.familyId);
+    }
+
     setEditingId(null);
   }
 
@@ -385,7 +399,7 @@ const Transactions = () => {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 w-full">
-                          <p className={cn("text-sm font-medium truncate min-w-0 flex-1", isPlanned && t.conciliado && "line-through text-muted-foreground")}>
+                          <p className={cn("text-sm font-medium whitespace-normal break-words min-w-[200px] flex-1", isPlanned && t.conciliado && "line-through text-muted-foreground")}>
                             {t.treatedName || t.establishment || t.description}
                           </p>
                           {hasAlert && (
@@ -395,7 +409,7 @@ const Transactions = () => {
                           )}
                         </div>
                         {t.treatedName && (
-                          <p className="text-[10px] text-muted-foreground truncate">{t.description}</p>
+                          <p className="text-[10px] text-muted-foreground whitespace-normal break-words">{t.description}</p>
                         )}
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <span className="text-[10px] text-muted-foreground">{t.date}</span>

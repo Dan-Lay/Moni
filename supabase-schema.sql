@@ -156,10 +156,21 @@ CREATE TABLE IF NOT EXISTS public.categorization_rules (
   keyword    TEXT NOT NULL,
   category   TEXT NOT NULL DEFAULT 'outros',
   profile    TEXT DEFAULT 'familia' CHECK (profile IN ('marido', 'esposa', 'familia')),
+  family_id  TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_rules_user_id ON public.categorization_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_rules_family ON public.categorization_rules(family_id);
+
+-- Helper function: get family_id for current user
+CREATE OR REPLACE FUNCTION public.get_user_family_id(_user_id uuid)
+RETURNS TEXT
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT family_id FROM profiles WHERE id = _user_id
+$$;
 
 -- ── 8. User Preferences ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.user_preferences (
@@ -213,9 +224,23 @@ CREATE POLICY "desapego_update" ON public.desapego_items FOR UPDATE USING (auth.
 CREATE POLICY "desapego_delete" ON public.desapego_items FOR DELETE USING (auth.uid() = user_id);
 
 -- Categorization Rules
-CREATE POLICY "rules_select" ON public.categorization_rules FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "rules_insert" ON public.categorization_rules FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "rules_delete" ON public.categorization_rules FOR DELETE USING (auth.uid() = user_id);
+-- Categorization Rules (family-shared)
+CREATE POLICY "rules_family_select" ON public.categorization_rules FOR SELECT USING (
+  auth.uid() = user_id
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+CREATE POLICY "rules_family_insert" ON public.categorization_rules FOR INSERT WITH CHECK (
+  auth.uid() = user_id
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+CREATE POLICY "rules_family_update" ON public.categorization_rules FOR UPDATE USING (
+  auth.uid() = user_id
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+CREATE POLICY "rules_family_delete" ON public.categorization_rules FOR DELETE USING (
+  auth.uid() = user_id
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
 
 -- User Preferences
 CREATE POLICY "prefs_select" ON public.user_preferences FOR SELECT USING (auth.uid() = user_id);

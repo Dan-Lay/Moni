@@ -15,7 +15,7 @@ import { buildTransaction, categorizeTransaction } from "@/lib/categorizer";
 import { reconcileBatch, ReconciliationResult } from "@/lib/reconciliation";
 import {
   CategorizationRule, fetchCategorizationRules, createCategorizationRule,
-  matchRule, ColumnMapping, saveColumnMapping, loadColumnMapping,
+  upsertCategorizationRule, matchRule, ColumnMapping, saveColumnMapping, loadColumnMapping,
 } from "@/lib/rules-engine";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -89,7 +89,9 @@ function parseAmount(raw: string): number {
 const UploadPage = () => {
   const { addTransactions, data, reload, updatePlannedEntry } = useFinance();
   const { user } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const csvRef = useRef<HTMLInputElement>(null);
+  const ofxRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [sourceHint, setSourceHint] = useState("santander");
   const [isLoading, setIsLoading] = useState(false);
@@ -130,9 +132,9 @@ const UploadPage = () => {
   // Load rules on mount
   useEffect(() => {
     if (user?.id) {
-      fetchCategorizationRules(user.id).then(setRules).catch(() => {});
+      fetchCategorizationRules(user.id, user.familyId).then(setRules).catch(() => {});
     }
-  }, [user?.id]);
+  }, [user?.id, user?.familyId]);
 
   // ── File processing ──
   const processFile = useCallback(async (file: File) => {
@@ -210,7 +212,7 @@ const UploadPage = () => {
     if (user?.id) {
       console.time("[Moni] fetch-rules");
       try {
-        const rulesPromise = fetchCategorizationRules(user.id);
+        const rulesPromise = fetchCategorizationRules(user.id, user.familyId);
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("timeout")), 5000)
         );
@@ -323,6 +325,19 @@ const UploadPage = () => {
         await addTransactions(toInsertTxs);
       }
 
+      // ── Learning: upsert rules for manually changed categories ──
+      if (user?.id) {
+        const changedRows = eligible.filter((r) => {
+          // If user changed the category from what the categorizer originally set
+          const originalCat = r.ruleMatch ? r.ruleMatch.category : categorizeTransaction(r.tx.description);
+          return r.tx.category !== originalCat;
+        });
+        for (const r of changedRows) {
+          const keyword = (r.tx.establishment || r.tx.description).substring(0, 30);
+          upsertCategorizationRule(keyword, r.tx.category, r.tx.spouseProfile, user.id, user.familyId);
+        }
+      }
+
       setShowReview(false);
       setReviewRows([]);
       setOnlyCategorized(false);
@@ -359,7 +374,8 @@ const UploadPage = () => {
         ruleDialog.keyword.trim(),
         ruleDialog.category,
         ruleDialog.profile,
-        user.id
+        user.id,
+        user.familyId
       );
       const updatedRules = [...rules, newRule];
       setRules(updatedRules);
@@ -455,22 +471,24 @@ const UploadPage = () => {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"><UploadIcon className="h-7 w-7 text-primary" /></div>
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
             <p className="mb-4 text-sm text-muted-foreground">Ou selecione pelo tipo de arquivo:</p>
-            <input ref={fileRef} type="file" className="hidden" onChange={handleChange} />
-            <div className="flex flex-wrap gap-3 justify-center">
-              <button onClick={() => { fileRef.current?.setAttribute("accept", ".csv"); fileRef.current?.click(); }}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
-                <FileSpreadsheet className="h-4 w-4" /> Importar Extrato CSV
-              </button>
-              <button onClick={() => { fileRef.current?.setAttribute("accept", ".ofx,.qfx"); fileRef.current?.click(); }}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
-                <FileText className="h-4 w-4" /> Importar Extrato OFX
-              </button>
-              <button onClick={() => { fileRef.current?.setAttribute("accept", "application/pdf"); fileRef.current?.click(); }}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
-                <FileText className="h-4 w-4" /> Importar Fatura PDF
-              </button>
-            </div>
-          </motion.div>
+             <input ref={csvRef} type="file" className="hidden" accept=".csv,.txt" onChange={handleChange} />
+             <input ref={ofxRef} type="file" className="hidden" accept=".ofx,.qfx" onChange={handleChange} />
+             <input ref={pdfRef} type="file" className="hidden" accept="application/pdf" onChange={handleChange} />
+             <div className="flex flex-wrap gap-3 justify-center">
+               <button onClick={() => csvRef.current?.click()}
+                 className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                 <FileSpreadsheet className="h-4 w-4" /> Importar Extrato CSV
+               </button>
+               <button onClick={() => ofxRef.current?.click()}
+                 className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                 <FileText className="h-4 w-4" /> Importar Extrato OFX
+               </button>
+               <button onClick={() => pdfRef.current?.click()}
+                 className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                 <FileText className="h-4 w-4" /> Importar Fatura PDF
+               </button>
+             </div>
+           </motion.div>
 
           {/* Format info */}
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -586,7 +604,7 @@ const UploadPage = () => {
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={onlyCategorized} onChange={(e) => setOnlyCategorized(e.target.checked)}
                     className="h-3.5 w-3.5 rounded border-border accent-primary" />
-                  <span className="text-[11px] text-muted-foreground">AutoTag</span>
+                  <span className="text-[11px] text-muted-foreground">Categorizado</span>
                 </label>
                 <button onClick={() => { setShowReview(false); setReviewRows([]); setImportSummary(null); setOnlyCategorized(false); }}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
@@ -670,7 +688,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="overflow-y-auto" style={{ maxHeight: "400px" }}>
+                <div className="max-h-[50vh] overflow-y-auto block pr-2">
                   <div className="space-y-1 pr-3">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
