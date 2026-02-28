@@ -1,84 +1,131 @@
 
-# Correcoes Criticas - Upload e Transacoes
 
-## 1. Fix de Scroll no Upload (UploadPage.tsx)
+# Implementacao Completa: Upload, Categorizacao Familiar, Scroll e AwesomeAPI
 
-Substituir o `ScrollArea` (linha 604) por uma `div` nativa com `overflow-y-auto` e `max-h-[60vh]`. O `ScrollArea` do Radix nem sempre respeita a altura maxima dentro de containers flexiveis. A `div` nativa resolve o problema de forma confiavel.
+## 1. Upload - 3 inputs nativos com refs separadas
 
-**Linha 604:** `<ScrollArea className="max-h-[55vh]">` sera substituida por `<div className="overflow-y-auto max-h-[60vh]">` (e o `</ScrollArea>` correspondente na linha 673).
+**Estado actual:** Um unico `<input ref={fileRef}>` na linha 458 tem o `accept` alterado via `setAttribute` antes de cada `.click()`.
 
----
+**Correcao:** Criar 3 refs independentes (`csvRef`, `ofxRef`, `pdfRef`) com 3 `<input type="file" className="hidden">` cada um com `accept` fixo. Os botoes chamam `ref.current?.click()` directamente. Remover o `fileRef` unico.
 
-## 2. Renomear filtro para "AutoTag" e corrigir filtragem visual (UploadPage.tsx)
-
-- **Linha 592:** Renomear "So auto-categorizados" para "AutoTag".
-- **Filtragem visual:** Quando `onlyCategorized` estiver ativo, esconder visualmente as rows com `status === "pending"` na lista de review (atualmente so afeta o `importableCount`, nao a lista).
-- Adicionar condicao no `.map()` da lista (linha 606): `if (onlyCategorized && row.status === "pending") return null;`.
+**Ficheiro:** `src/pages/UploadPage.tsx`
 
 ---
 
-## 3. Acordeao para Conciliados Automaticamente (UploadPage.tsx)
+## 2. Scroll do Modal de Upload
 
-Separar as `reviewRows` em dois grupos antes da renderizacao:
-- **Grupo 1 (sempre visivel):** Rows onde `reconciliation?.action` nao seja `"skip_duplicate"` nem `"reconciled_manual"`.
-- **Grupo 2 (acordeao fechado):** Rows com `reconciliation?.action === "skip_duplicate"` ou `"reconciled_manual"`.
+**Estado actual:** Linha 673 usa `<div className="overflow-y-auto" style={{ maxHeight: "400px" }}>`. Funciona parcialmente.
 
-Usar o componente `Collapsible` (ja existe em `src/components/ui/collapsible.tsx`) para o Grupo 2, fechado por defeito. O trigger mostrara "X lancamento(s) ja conciliado(s) — clique para ver".
+**Correcao:** Trocar para `<div className="max-h-[50vh] overflow-y-auto block pr-2">` para garantir scroll independente em todos os tamanhos de ecra.
 
-Importar `Collapsible, CollapsibleTrigger, CollapsibleContent` e `ChevronsUpDown` no topo do ficheiro.
+**Ficheiro:** `src/pages/UploadPage.tsx`
 
 ---
 
-## 4. Performance do File Picker (UploadPage.tsx)
+## 3. Renomear filtro para "Categorizado"
 
-- **Linha 474:** Alterar o `accept` de `.ofx,.qfx,.csv,.txt,.pdf` para `.csv,.ofx,.qfx,application/pdf`. Isto mantem o suporte a PDF mas usa MIME type especifico para evitar scanning lento no Windows.
-- Mover a callback `handleChange` para usar `useCallback` com dependencia estavel (ja esta feito) e garantir que o `fileRef` nao gera re-renders.
-- O `useRef` ja esta estavel (linha 92). Nenhuma mudanca adicional necessaria — o problema principal e o `accept`.
+**Estado actual:** Linha 589 tem label "AutoTag".
+
+**Correcao:** Trocar para "Categorizado".
+
+**Ficheiro:** `src/pages/UploadPage.tsx`
 
 ---
 
-## 5. Exclusao Individual e em Massa (Transactions.tsx + DataContext + pocketbase.ts + mock-pocketbase.ts)
+## 4. Textos cortados no Extrato
 
-### 5a. Servico Supabase (src/lib/pocketbase.ts)
-Adicionar duas funcoes ao ficheiro que contem as funcoes CRUD do Supabase:
+**Estado actual:** Linhas 388 e 398 de Transactions.tsx usam `truncate`.
+
+**Correcao:**
+- Linha 388: `truncate min-w-0 flex-1` -> `whitespace-normal break-words min-w-[200px] flex-1`
+- Linha 398: `truncate` -> `whitespace-normal break-words`
+
+**Ficheiro:** `src/pages/Transactions.tsx`
+
+---
+
+## 5. Categorizacao compartilhada por familia (CRITICO)
+
+### 5a. Migracao SQL (Supabase)
+Adicionar coluna `family_id` a tabela `categorization_rules`. Recriar TODAS as politicas RLS para permitir acesso completo (SELECT, INSERT, UPDATE, DELETE) por qualquer membro da familia:
 
 ```text
-deleteTransaction(id: string)
-  -> supabase.from("transactions").delete().eq("id", id)
+ALTER TABLE categorization_rules ADD COLUMN IF NOT EXISTS family_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_rules_family ON categorization_rules(family_id);
 
-deleteTransactions(ids: string[])
-  -> supabase.from("transactions").delete().in("id", ids)
+-- Helper function (security definer) para buscar family_id do user logado
+CREATE OR REPLACE FUNCTION public.get_user_family_id(_user_id uuid)
+RETURNS TEXT
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT family_id FROM profiles WHERE id = _user_id
+$$;
+
+-- Recriar politicas: TODA a familia tem acesso total
+DROP POLICY IF EXISTS rules_select ON categorization_rules;
+DROP POLICY IF EXISTS rules_insert ON categorization_rules;
+DROP POLICY IF EXISTS rules_delete ON categorization_rules;
+
+CREATE POLICY rules_family_select ON categorization_rules FOR SELECT USING (
+  user_id = auth.uid()
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+
+CREATE POLICY rules_family_insert ON categorization_rules FOR INSERT WITH CHECK (
+  user_id = auth.uid()
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+
+CREATE POLICY rules_family_update ON categorization_rules FOR UPDATE USING (
+  user_id = auth.uid()
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
+
+CREATE POLICY rules_family_delete ON categorization_rules FOR DELETE USING (
+  user_id = auth.uid()
+  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
+);
 ```
 
-A seguranca e garantida pelo RLS do Supabase (politica `user_id = auth.uid()`).
+### 5b. Rules Engine (`src/lib/rules-engine.ts`)
+- Adicionar `familyId` ao interface `CategorizationRule`
+- `fetchCategorizationRules(userId, familyId?)`: se `familyId` presente, buscar por `family_id` (via `.or()`) para trazer regras de toda a familia
+- `createCategorizationRule(...)`: aceitar `familyId` e persistir na coluna `family_id`
+- Nova funcao `upsertCategorizationRule(keyword, category, profile, userId, familyId)`: faz upsert baseado em `keyword + family_id` para evitar duplicados
 
-### 5b. Mock (src/lib/mock-pocketbase.ts)
-Adicionar stubs equivalentes para o modo mock.
+### 5c. UploadPage - Aprendizado no Upload
+Na funcao `handleConfirmImport`, apos inserir transacoes com sucesso, iterar as `reviewRows` que tiveram categoria alterada manualmente (comparar com a categoria original do categorizer). Para cada alteracao, chamar `upsertCategorizationRule` com `user.familyId`.
 
-### 5c. DataContext (src/contexts/DataContext.tsx)
-- Adicionar `deleteTransaction(id: string)` e `deleteTransactions(ids: string[])` ao `FinanceContextType`.
-- Implementar handlers que chamam a API e removem do state local.
-- Expor no Provider.
+### 5d. UploadPage - Fetch de regras com familyId
+Alterar o `useEffect` da linha 131-135 para passar `user.familyId` ao `fetchCategorizationRules`.
 
-### 5d. UI - Exclusao Individual (Transactions.tsx)
-- Ao lado do botao de edicao (PencilLine, linha 444), adicionar icone `Trash2`.
-- Ao clicar, abre um `AlertDialog` pedindo confirmacao.
-- Apos confirmar, chama `deleteTransaction(id)`.
-
-### 5e. UI - Exclusao em Massa (Transactions.tsx)
-- Na barra de bulk edit (linha 228-247), adicionar botao "Excluir Selecionados" ao lado do "Aplicar".
-- Desabilitado quando `selectedIds.size === 0`.
-- Ao clicar, abre `AlertDialog` com contagem de itens.
-- Apos confirmar, chama `deleteTransactions(Array.from(selectedIds))` e limpa a selecao.
+### 5e. Transactions.tsx - Aprendizado no Extrato
+Na funcao `confirmEdit`, apos salvar alteracao de categoria com sucesso, chamar `upsertCategorizationRule` com:
+- `keyword`: establishment ou primeiros 30 chars da descricao limpa
+- `category`: nova categoria
+- `profile`: perfil do spouse
+- `familyId`: `user.familyId`
 
 ---
 
-## Resumo de Ficheiros Afetados
+## 6. Widget Dollar/Euro - AwesomeAPI
+
+**Estado actual:** Usa `api.frankfurter.app` (linha 18-19 de DollarDisney.tsx).
+
+**Correcao:** Trocar URL para `https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL`. Parse: `json.USDBRL.bid` e `json.EURBRL.bid` (strings -> parseFloat). Sem token na URL (endpoint gratuito).
+
+**Ficheiro:** `src/components/dashboard/DollarDisney.tsx`
+
+---
+
+## Resumo de ficheiros afetados
 
 | Ficheiro | Alteracoes |
 |---|---|
-| `src/pages/UploadPage.tsx` | Scroll fix, AutoTag, acordeao, accept do file picker |
-| `src/pages/Transactions.tsx` | Exclusao individual + em massa com AlertDialog |
-| `src/contexts/DataContext.tsx` | Novas funcoes deleteTransaction/deleteTransactions |
-| `src/lib/pocketbase.ts` | Funcoes DELETE no Supabase |
-| `src/lib/mock-pocketbase.ts` | Stubs mock para delete |
+| `src/pages/UploadPage.tsx` | 3 refs nativas, scroll `max-h-[50vh]`, renomear filtro, aprendizado no confirm |
+| `src/pages/Transactions.tsx` | Remover truncate, aprendizado no confirmEdit |
+| `src/lib/rules-engine.ts` | family_id em fetch/create, nova funcao upsert |
+| `src/components/dashboard/DollarDisney.tsx` | AwesomeAPI |
+| Migracao Supabase | Coluna family_id, funcao helper, 4 politicas RLS (SELECT/INSERT/UPDATE/DELETE) |
+
