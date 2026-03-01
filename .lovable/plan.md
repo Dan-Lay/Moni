@@ -1,131 +1,80 @@
 
+Objetivo imediato: corrigir o lag do File Picker no Windows com as duas mudanças exatas solicitadas (accept por extensão estrita + append/remove do input no DOM antes/depois do click), mantendo o restante do fluxo de upload intacto.
 
-# Implementacao Completa: Upload, Categorizacao Familiar, Scroll e AwesomeAPI
+Escopo confirmado após auditoria do código:
+- Arquivo afetado: `src/pages/UploadPage.tsx`
+- Estado atual encontrado:
+  - Já usa `document.createElement("input")`, mas:
+    - ainda há `accept` não estrito para PDF (`"application/pdf"`)
+    - não faz `document.body.appendChild(input)` antes de `input.click()`
+    - não remove o input do DOM após seleção/cancelamento
+  - Botões atuais:
+    - CSV: `openNativePicker(".csv,.txt")`
+    - OFX: `openNativePicker(".ofx,.qfx")`
+    - PDF: `openNativePicker("application/pdf")`
 
-## 1. Upload - 3 inputs nativos com refs separadas
+Implementação planejada (sem atalhos)
 
-**Estado actual:** Um unico `<input ref={fileRef}>` na linha 458 tem o `accept` alterado via `setAttribute` antes de cada `.click()`.
+1) Substituir helper genérico por 3 handlers explícitos (CSV/OFX/PDF)
+- Criar funções dedicadas:
+  - `handleUploadCSV`
+  - `handleUploadOFX`
+  - `handleUploadPDF`
+- Cada função seguirá a mesma estrutura nativa exigida:
+  - criar input via `document.createElement('input')`
+  - `input.type = 'file'`
+  - `input.accept` com extensões estritas
+  - `input.style.display = 'none'`
+  - `document.body.appendChild(input)` antes de `input.click()`
+  - `input.onchange` processa arquivo e remove o input do DOM
+  - `input.addEventListener('cancel', ...)` remove o input em cancelamento
 
-**Correcao:** Criar 3 refs independentes (`csvRef`, `ofxRef`, `pdfRef`) com 3 `<input type="file" className="hidden">` cada um com `accept` fixo. Os botoes chamam `ref.current?.click()` directamente. Remover o `fileRef` unico.
+2) Aplicar Accept estrito por extensão (sem MIME genérico)
+- CSV: `input.accept = '.csv';`
+- OFX: `input.accept = '.ofx,.qfx';`
+- PDF: `input.accept = '.pdf';`
+- Remover os accepts atuais que provocam scan mais amplo no Windows (especialmente `application/pdf` e CSV com `.txt`).
 
-**Ficheiro:** `src/pages/UploadPage.tsx`
+3) Garantir limpeza de memória/DOM em todos os caminhos
+- Em `onchange`:
+  - ler `files?.[0]`
+  - se existir, chamar `processFile(file)`
+  - remover input do body
+- Em `cancel`:
+  - remover input do body
+- Implementar remoção segura para evitar erro de dupla remoção (ex.: checar `input.parentNode` antes de remover).
 
----
+4) Atualizar onClick dos 3 botões de upload
+- Trocar:
+  - `onClick={() => openNativePicker(...)}`
+- Por:
+  - `onClick={handleUploadCSV}`
+  - `onClick={handleUploadOFX}`
+  - `onClick={handleUploadPDF}`
 
-## 2. Scroll do Modal de Upload
+5) Não alterar a lógica de parsing/categorização neste ciclo
+- `processFile` permanece como pipeline único de processamento.
+- Não haverá alteração em `rules-engine.ts` nesta tarefa (categorização já foi validada pelo usuário).
 
-**Estado actual:** Linha 673 usa `<div className="overflow-y-auto" style={{ maxHeight: "400px" }}>`. Funciona parcialmente.
+Critérios de aceitação (QA)
+1. Ao clicar em cada botão (CSV/OFX/PDF), o seletor abre sem congelamento perceptível no Windows.
+2. O seletor usa filtro estrito por extensão:
+   - CSV mostra `.csv`
+   - OFX mostra `.ofx`/`.qfx`
+   - PDF mostra `.pdf`
+3. Cancelar a janela não deixa lixo no DOM (input temporário removido).
+4. Selecionar arquivo continua acionando o fluxo atual de `processFile` sem regressão.
+5. Drag-and-drop continua funcionando como hoje (sem alterações).
 
-**Correcao:** Trocar para `<div className="max-h-[50vh] overflow-y-auto block pr-2">` para garantir scroll independente em todos os tamanhos de ecra.
+Risco técnico e mitigação
+- Risco: evento `cancel` pode variar entre navegadores.
+- Mitigação: manter limpeza também no `onchange` e remoção segura via checagem de `parentNode`, garantindo que o DOM não retenha elementos mesmo em caminhos alternativos.
 
-**Ficheiro:** `src/pages/UploadPage.tsx`
+Sequência de execução
+1. Refatorar handlers de upload em `UploadPage.tsx`.
+2. Atualizar binds dos 3 botões.
+3. Validar estática (tipos/lint) e revisar imports/dependências do `useCallback`.
+4. Validar fluxo manual em ambiente Windows (principalmente Chrome/Edge).
 
----
-
-## 3. Renomear filtro para "Categorizado"
-
-**Estado actual:** Linha 589 tem label "AutoTag".
-
-**Correcao:** Trocar para "Categorizado".
-
-**Ficheiro:** `src/pages/UploadPage.tsx`
-
----
-
-## 4. Textos cortados no Extrato
-
-**Estado actual:** Linhas 388 e 398 de Transactions.tsx usam `truncate`.
-
-**Correcao:**
-- Linha 388: `truncate min-w-0 flex-1` -> `whitespace-normal break-words min-w-[200px] flex-1`
-- Linha 398: `truncate` -> `whitespace-normal break-words`
-
-**Ficheiro:** `src/pages/Transactions.tsx`
-
----
-
-## 5. Categorizacao compartilhada por familia (CRITICO)
-
-### 5a. Migracao SQL (Supabase)
-Adicionar coluna `family_id` a tabela `categorization_rules`. Recriar TODAS as politicas RLS para permitir acesso completo (SELECT, INSERT, UPDATE, DELETE) por qualquer membro da familia:
-
-```text
-ALTER TABLE categorization_rules ADD COLUMN IF NOT EXISTS family_id TEXT;
-CREATE INDEX IF NOT EXISTS idx_rules_family ON categorization_rules(family_id);
-
--- Helper function (security definer) para buscar family_id do user logado
-CREATE OR REPLACE FUNCTION public.get_user_family_id(_user_id uuid)
-RETURNS TEXT
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT family_id FROM profiles WHERE id = _user_id
-$$;
-
--- Recriar politicas: TODA a familia tem acesso total
-DROP POLICY IF EXISTS rules_select ON categorization_rules;
-DROP POLICY IF EXISTS rules_insert ON categorization_rules;
-DROP POLICY IF EXISTS rules_delete ON categorization_rules;
-
-CREATE POLICY rules_family_select ON categorization_rules FOR SELECT USING (
-  user_id = auth.uid()
-  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
-);
-
-CREATE POLICY rules_family_insert ON categorization_rules FOR INSERT WITH CHECK (
-  user_id = auth.uid()
-  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
-);
-
-CREATE POLICY rules_family_update ON categorization_rules FOR UPDATE USING (
-  user_id = auth.uid()
-  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
-);
-
-CREATE POLICY rules_family_delete ON categorization_rules FOR DELETE USING (
-  user_id = auth.uid()
-  OR (family_id IS NOT NULL AND family_id = public.get_user_family_id(auth.uid()))
-);
-```
-
-### 5b. Rules Engine (`src/lib/rules-engine.ts`)
-- Adicionar `familyId` ao interface `CategorizationRule`
-- `fetchCategorizationRules(userId, familyId?)`: se `familyId` presente, buscar por `family_id` (via `.or()`) para trazer regras de toda a familia
-- `createCategorizationRule(...)`: aceitar `familyId` e persistir na coluna `family_id`
-- Nova funcao `upsertCategorizationRule(keyword, category, profile, userId, familyId)`: faz upsert baseado em `keyword + family_id` para evitar duplicados
-
-### 5c. UploadPage - Aprendizado no Upload
-Na funcao `handleConfirmImport`, apos inserir transacoes com sucesso, iterar as `reviewRows` que tiveram categoria alterada manualmente (comparar com a categoria original do categorizer). Para cada alteracao, chamar `upsertCategorizationRule` com `user.familyId`.
-
-### 5d. UploadPage - Fetch de regras com familyId
-Alterar o `useEffect` da linha 131-135 para passar `user.familyId` ao `fetchCategorizationRules`.
-
-### 5e. Transactions.tsx - Aprendizado no Extrato
-Na funcao `confirmEdit`, apos salvar alteracao de categoria com sucesso, chamar `upsertCategorizationRule` com:
-- `keyword`: establishment ou primeiros 30 chars da descricao limpa
-- `category`: nova categoria
-- `profile`: perfil do spouse
-- `familyId`: `user.familyId`
-
----
-
-## 6. Widget Dollar/Euro - AwesomeAPI
-
-**Estado actual:** Usa `api.frankfurter.app` (linha 18-19 de DollarDisney.tsx).
-
-**Correcao:** Trocar URL para `https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL`. Parse: `json.USDBRL.bid` e `json.EURBRL.bid` (strings -> parseFloat). Sem token na URL (endpoint gratuito).
-
-**Ficheiro:** `src/components/dashboard/DollarDisney.tsx`
-
----
-
-## Resumo de ficheiros afetados
-
-| Ficheiro | Alteracoes |
-|---|---|
-| `src/pages/UploadPage.tsx` | 3 refs nativas, scroll `max-h-[50vh]`, renomear filtro, aprendizado no confirm |
-| `src/pages/Transactions.tsx` | Remover truncate, aprendizado no confirmEdit |
-| `src/lib/rules-engine.ts` | family_id em fetch/create, nova funcao upsert |
-| `src/components/dashboard/DollarDisney.tsx` | AwesomeAPI |
-| Migracao Supabase | Coluna family_id, funcao helper, 4 politicas RLS (SELECT/INSERT/UPDATE/DELETE) |
-
+Observação de contexto de teste
+- A sessão atual está em `/login`; para validação E2E no preview, será necessário autenticar e abrir a tela de Upload antes da verificação manual do File Picker.
