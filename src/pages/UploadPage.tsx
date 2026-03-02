@@ -419,58 +419,8 @@ const UploadPage = () => {
 
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }, [processFile]);
 
-  // Native file picker — fully decoupled from React to eliminate Windows lag
-  // Each handler: strict extension, DOM append before click, cleanup after use
-  const handleUploadCSV = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".csv";
-    input.style.display = "none";
-    input.onchange = (e) => {
-      const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) processFile(f);
-      if (input.parentNode) input.parentNode.removeChild(input);
-    };
-    input.addEventListener("cancel", () => {
-      if (input.parentNode) input.parentNode.removeChild(input);
-    });
-    document.body.appendChild(input);
-    input.click();
-  }, [processFile]);
 
-  const handleUploadOFX = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".ofx,.qfx";
-    input.style.display = "none";
-    input.onchange = (e) => {
-      const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) processFile(f);
-      if (input.parentNode) input.parentNode.removeChild(input);
-    };
-    input.addEventListener("cancel", () => {
-      if (input.parentNode) input.parentNode.removeChild(input);
-    });
-    document.body.appendChild(input);
-    input.click();
-  }, [processFile]);
 
-  const handleUploadPDF = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".pdf";
-    input.style.display = "none";
-    input.onchange = (e) => {
-      const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) processFile(f);
-      if (input.parentNode) input.parentNode.removeChild(input);
-    };
-    input.addEventListener("cancel", () => {
-      if (input.parentNode) input.parentNode.removeChild(input);
-    });
-    document.body.appendChild(input);
-    input.click();
-  }, [processFile]);
 
   const pendingCount = reviewRows.filter((r) => r.status === "pending" && !r.ignored).length;
   const autoCount = reviewRows.filter((r) => r.status === "auto" && !r.ignored).length;
@@ -521,18 +471,18 @@ const UploadPage = () => {
             <h2 className="mb-1 text-lg font-semibold">Arraste seus arquivos aqui</h2>
             <p className="mb-4 text-sm text-muted-foreground">Ou selecione pelo tipo de arquivo:</p>
              <div className="flex flex-wrap gap-3 justify-center">
-               <button onClick={handleUploadCSV}
-                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+               <label className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 cursor-pointer">
                   <FileSpreadsheet className="h-4 w-4" /> Importar Extrato CSV
-                </button>
-                <button onClick={handleUploadOFX}
-                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                  <input type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} />
+                </label>
+                <label className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 cursor-pointer">
                   <FileText className="h-4 w-4" /> Importar Extrato OFX
-                </button>
-                <button onClick={handleUploadPDF}
-                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+                  <input type="file" accept=".ofx,.qfx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} />
+                </label>
+                <label className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 cursor-pointer">
                   <FileText className="h-4 w-4" /> Importar Fatura PDF
-               </button>
+                  <input type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} />
+                </label>
              </div>
            </motion.div>
 
