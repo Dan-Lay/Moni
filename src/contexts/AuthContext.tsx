@@ -64,7 +64,7 @@ function fallbackProfile(supaUser: { id: string; email?: string }): UserProfile 
   };
 }
 
-const isMockConfigured = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+const isMockConfigured = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY; // rebuild
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
