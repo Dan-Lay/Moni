@@ -36,13 +36,15 @@ export const SaldoCard = () => {
   const percentPreso = (totalFatura / salarioLiquido) * 100;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-5">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Saldo vs Cartões de Crédito</h3>
-        <CreditCard className="h-4 w-4 text-destructive" />
+        <h3 className="text-sm font-semibold text-foreground">Saldo vs Cartoes de Credito</h3>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive/8">
+          <CreditCard className="h-4 w-4 text-destructive" />
+        </div>
       </div>
-      <div className="mb-1 font-mono text-3xl font-bold tracking-tight">{formatBRLShort(disponivel)}</div>
-      <p className="mb-4 text-xs text-muted-foreground">disponível após faturas</p>
+      <div className="mb-1 font-mono text-3xl font-bold tracking-tight text-foreground">{formatBRLShort(disponivel)}</div>
+      <p className="mb-5 text-xs text-muted-foreground">disponivel apos faturas</p>
 
       {/* Individual card bars */}
       <div className="space-y-2 mb-3">

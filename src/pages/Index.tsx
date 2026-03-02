@@ -1,4 +1,4 @@
-import { Sparkles, Users, User } from "lucide-react";
+import { Users, User } from "lucide-react";
 import { SaldoCard } from "@/components/dashboard/SaldoCard";
 import { DisneyThermometer } from "@/components/dashboard/DisneyThermometer";
 import { MiguelThermometer } from "@/components/dashboard/MiguelThermometer";
@@ -24,23 +24,18 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <header className="mb-3 flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 lg:hidden">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-primary hidden lg:block" />
-            <h1 className="text-base sm:text-lg font-bold tracking-tight">Moni</h1>
-          </div>
+      <header className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Bom dia</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Sua inteligencia financeira</p>
         </div>
-        <div className="flex items-center gap-0.5 rounded-xl bg-secondary p-0.5 sm:p-1">
+        <div className="flex items-center gap-0.5 rounded-2xl bg-white p-1" style={{ boxShadow: '0 2px 8px rgb(0 0 0 / 0.06)' }}>
           {PROFILE_OPTIONS.map((opt) => (
             <motion.button
               key={opt.value}
               onClick={() => setProfileFilter(opt.value)}
               whileTap={{ scale: 0.95 }}
-              className={`flex items-center gap-0.5 sm:gap-1 rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold transition-all ${
+              className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-semibold transition-all ${
                 profileFilter === opt.value
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -53,7 +48,7 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="space-y-4 w-full min-w-0 overflow-x-hidden">
+      <div className="space-y-5 w-full min-w-0 overflow-x-hidden">
         {/* Row 1: CashFlow full width */}
         <div className="w-full" style={{ minHeight: 280 }}>
           <CashFlowChart />
@@ -65,19 +60,19 @@ const Index = () => {
         </div>
 
         {/* Row 3: LiberdadeFinanceira | SaldoCard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <LiberdadeFinanceira />
           <SaldoCard />
         </div>
 
         {/* Row 4: ExpensePieChart | TopEstablishments */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <ExpensePieChart />
           <TopEstablishments />
         </div>
 
         {/* Row 5: Footer — 4 small cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <MiguelThermometer />
           <DollarDisney />
           <DisneyThermometer />

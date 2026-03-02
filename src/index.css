@@ -2,119 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fonts: Inter and JetBrains Mono loaded via system fallback for offline use. */
-/* To use Google Fonts, add this import at the top of this file: */
-/* fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 200 40% 12%;
+    /* Premium Off-White / Wealth Management palette */
+    --background: 220 20% 97%;
+    --foreground: 220 30% 15%;
 
-    --card: 210 14% 95%;
-    --card-foreground: 200 40% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 200 40% 12%;
+    --popover-foreground: 220 30% 15%;
 
-    --primary: 174 62% 42%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 220 45% 20%;
+    --primary-foreground: 40 30% 95%;
 
-    --secondary: 200 18% 92%;
-    --secondary-foreground: 200 40% 12%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 220 30% 15%;
 
-    --muted: 200 18% 96%;
-    --muted-foreground: 200 12% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 50%;
 
-    --accent: 196 80% 36%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 40 40% 55%;
+    --accent-foreground: 220 30% 15%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 200 16% 90%;
-    --input: 200 16% 90%;
-    --ring: 174 62% 42%;
+    --border: 220 14% 92%;
+    --input: 220 14% 92%;
+    --ring: 220 45% 20%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --chart-1: 174 62% 42%;
-    --chart-2: 196 80% 36%;
-    --chart-3: 160 50% 50%;
-    --chart-4: 280 55% 60%;
-    --chart-5: 340 65% 55%;
+    --chart-1: 220 45% 20%;
+    --chart-2: 40 40% 55%;
+    --chart-3: 160 40% 42%;
+    --chart-4: 220 30% 45%;
+    --chart-5: 0 65% 48%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 200 40% 12%;
-    --sidebar-primary: 174 62% 42%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 18% 96%;
-    --sidebar-accent-foreground: 200 40% 12%;
-    --sidebar-border: 200 16% 90%;
-    --sidebar-ring: 174 62% 42%;
+    --sidebar-foreground: 220 30% 15%;
+    --sidebar-primary: 220 45% 20%;
+    --sidebar-primary-foreground: 40 30% 95%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 220 30% 15%;
+    --sidebar-border: 220 14% 92%;
+    --sidebar-ring: 220 45% 20%;
 
-    --disney-gold: 196 80% 36%;
-    --disney-gold-foreground: 0 0% 100%;
-    --success: 174 62% 42%;
+    --disney-gold: 40 40% 55%;
+    --disney-gold-foreground: 220 30% 15%;
+    --success: 160 40% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 43 90% 52%;
-    --warning-foreground: 35 80% 20%;
-    --info: 196 80% 36%;
+    --warning: 40 90% 50%;
+    --warning-foreground: 35 80% 15%;
+    --info: 220 45% 35%;
     --info-foreground: 0 0% 100%;
+
+    --champagne: 40 40% 75%;
   }
 
   .dark {
-    --background: 200 35% 7%;
-    --foreground: 180 20% 95%;
+    --background: 220 20% 97%;
+    --foreground: 220 30% 15%;
 
-    --card: 200 35% 10%;
-    --card-foreground: 180 20% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 15%;
 
-    --popover: 200 35% 10%;
-    --popover-foreground: 180 20% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 15%;
 
-    --primary: 174 62% 45%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 220 45% 20%;
+    --primary-foreground: 40 30% 95%;
 
-    --secondary: 200 25% 15%;
-    --secondary-foreground: 180 20% 95%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 220 30% 15%;
 
-    --muted: 200 25% 15%;
-    --muted-foreground: 200 15% 55%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 50%;
 
-    --accent: 196 80% 42%;
-    --accent-foreground: 200 35% 7%;
+    --accent: 40 40% 55%;
+    --accent-foreground: 220 30% 15%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 200 25% 17%;
-    --input: 200 25% 17%;
-    --ring: 174 62% 45%;
+    --border: 220 14% 92%;
+    --input: 220 14% 92%;
+    --ring: 220 45% 20%;
 
-    --chart-1: 174 62% 50%;
-    --chart-2: 196 80% 46%;
-    --chart-3: 160 50% 55%;
-    --chart-4: 280 55% 65%;
-    --chart-5: 340 65% 60%;
+    --chart-1: 220 45% 20%;
+    --chart-2: 40 40% 55%;
+    --chart-3: 160 40% 42%;
+    --chart-4: 220 30% 45%;
+    --chart-5: 0 65% 48%;
 
-    --sidebar-background: 200 35% 9%;
-    --sidebar-foreground: 180 20% 95%;
-    --sidebar-primary: 174 62% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 25% 15%;
-    --sidebar-accent-foreground: 180 20% 95%;
-    --sidebar-border: 200 25% 17%;
-    --sidebar-ring: 174 62% 45%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 30% 15%;
+    --sidebar-primary: 220 45% 20%;
+    --sidebar-primary-foreground: 40 30% 95%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 220 30% 15%;
+    --sidebar-border: 220 14% 92%;
+    --sidebar-ring: 220 45% 20%;
 
-    --disney-gold: 196 80% 42%;
-    --disney-gold-foreground: 0 0% 100%;
-    --success: 174 62% 50%;
+    --disney-gold: 40 40% 55%;
+    --disney-gold-foreground: 220 30% 15%;
+    --success: 160 40% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 43 90% 56%;
-    --warning-foreground: 200 35% 7%;
-    --info: 196 80% 46%;
+    --warning: 40 90% 50%;
+    --warning-foreground: 35 80% 15%;
+    --info: 220 45% 35%;
     --info-foreground: 0 0% 100%;
+
+    --champagne: 40 40% 75%;
   }
 }
 html, body, #root {
@@ -135,7 +138,7 @@ html, body, #root {
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   }
 
   .font-mono {
@@ -187,7 +190,8 @@ html, body, #root {
     overflow: hidden !important;
   }
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-white border-0;
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.02);
     overflow: hidden !important;
     min-width: 0 !important;
     min-height: 0 !important;
@@ -197,10 +201,10 @@ html, body, #root {
     overflow: visible;
     scrollbar-width: none;
   }
-  /* Mobile: tighter padding on cards */
+  /* Mobile: comfortable padding on cards */
   @media (max-width: 640px) {
     .glass-card {
-      padding: 0.75rem;
+      padding: 1rem;
     }
     .glass-card .text-3xl {
       font-size: 1.5rem;
@@ -226,11 +230,11 @@ html, body, #root {
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.15), 0 0 60px hsl(var(--primary) / 0.05);
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.04);
   }
 
   .glow-accent {
-    box-shadow: 0 0 20px hsl(var(--accent) / 0.15), 0 0 60px hsl(var(--accent) / 0.05);
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.04);
   }
 
   .text-gradient-primary {
@@ -240,7 +244,7 @@ html, body, #root {
 
   .text-gradient-gold {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(var(--accent)), hsl(196 60% 60%));
+    background-image: linear-gradient(135deg, hsl(40 45% 50%), hsl(40 40% 65%));
   }
 }
 

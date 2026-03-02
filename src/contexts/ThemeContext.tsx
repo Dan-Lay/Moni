@@ -14,8 +14,7 @@ export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem("moni-theme");
-    return (saved as Theme) || "dark";
+    return "light";
   });
 
   useEffect(() => {

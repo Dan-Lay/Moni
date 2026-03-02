@@ -167,75 +167,75 @@ export const CashFlowChart = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="glass-card rounded-2xl p-5"
+      className="glass-card rounded-3xl p-6"
     >
       {/* Performance Header */}
-      <div className="mb-3 flex items-center gap-2 sm:gap-4 flex-wrap min-w-0">
+      <div className="mb-4 flex items-center gap-2 sm:gap-4 flex-wrap min-w-0">
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs text-muted-foreground">Gasto neste período</p>
-          <p className="text-base sm:text-lg font-bold text-foreground">{formatBRL(periodSpent)}</p>
+          <p className="text-[11px] sm:text-xs text-muted-foreground font-medium">Gasto neste periodo</p>
+          <p className="text-lg sm:text-xl font-bold text-foreground">{formatBRL(periodSpent)}</p>
         </div>
         <div className="flex items-center gap-1.5">
           {trendInfo.type === "up" && (
             <>
-              <div className="flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5">
+              <div className="flex items-center gap-1 rounded-full bg-destructive/8 px-2.5 py-0.5">
                 <TrendingUp className="h-3.5 w-3.5 text-destructive" />
                 <span className="text-[11px] font-semibold text-destructive">
                   +{formatBRL(Math.abs(trendInfo.diff))}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground">vs média 3M</span>
+              <span className="text-[10px] text-muted-foreground">vs media 3M</span>
             </>
           )}
           {trendInfo.type === "down" && (
             <>
-              <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5">
-                <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-[11px] font-semibold text-emerald-500">
+              <div className="flex items-center gap-1 rounded-full px-2.5 py-0.5" style={{ background: 'hsl(160 40% 42% / 0.08)' }}>
+                <TrendingDown className="h-3.5 w-3.5" style={{ color: 'hsl(160 40% 42%)' }} />
+                <span className="text-[11px] font-semibold" style={{ color: 'hsl(160 40% 42%)' }}>
                   -{formatBRL(Math.abs(trendInfo.diff))}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground">vs média 3M</span>
+              <span className="text-[10px] text-muted-foreground">vs media 3M</span>
             </>
           )}
           {trendInfo.type === "stable" && (
             <>
-              <div className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5">
-                <Minus className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-[11px] font-semibold text-amber-500">Estável</span>
+              <div className="flex items-center gap-1 rounded-full px-2.5 py-0.5" style={{ background: 'hsl(40 40% 55% / 0.1)' }}>
+                <Minus className="h-3.5 w-3.5" style={{ color: 'hsl(40 40% 55%)' }} />
+                <span className="text-[11px] font-semibold" style={{ color: 'hsl(40 40% 55%)' }}>Estavel</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">vs média 3M</span>
+              <span className="text-[10px] text-muted-foreground">vs media 3M</span>
             </>
           )}
         </div>
 
         {crossesFloor && (
-          <div className="flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 ml-auto">
+          <div className="flex items-center gap-1 rounded-full bg-destructive/8 px-3 py-1 ml-auto">
             <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
             <span className="text-[10px] font-semibold text-destructive">
-              Atenção: saldo insuficiente no futuro próximo
+              Atencao: saldo insuficiente no futuro proximo
             </span>
           </div>
         )}
       </div>
 
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">
+          <h3 className="text-xs sm:text-sm font-semibold text-foreground">
             Fluxo de Caixa Preditivo
           </h3>
-          <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] text-muted-foreground mt-1 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] text-muted-foreground mt-1.5 flex-wrap">
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: "hsl(174, 62%, 42%, 0.3)" }} />
-              Média
+              <span className="inline-block h-2 w-3 rounded-sm" style={{ background: "hsl(220, 45%, 20%, 0.15)" }} />
+              Media
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0 w-3" style={{ borderTop: "2px solid hsl(var(--info))" }} />
+              <span className="inline-block h-0 w-3" style={{ borderTop: "2px solid hsl(var(--primary))" }} />
               Atual
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0 w-3" style={{ borderTop: "2px dashed hsl(var(--info))" }} />
-              Projeção
+              <span className="inline-block h-0 w-3" style={{ borderTop: "2px dashed hsl(var(--primary))" }} />
+              Projecao
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-0 w-3" style={{ borderTop: "2px dashed hsl(var(--destructive))" }} />
@@ -244,12 +244,12 @@ export const CashFlowChart = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5 flex-shrink-0">
+        <div className="flex items-center gap-0.5 rounded-xl bg-muted p-0.5 flex-shrink-0">
           {filters.map((f) => (
             <button
               key={f}
               onClick={() => setTimeFilter(f)}
-              className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-all ${
+              className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all ${
                 timeFilter === f
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -266,8 +266,8 @@ export const CashFlowChart = () => {
           <ComposedChart data={chartData}>
             <defs>
               <linearGradient id="mediaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(174, 62%, 42%)" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="hsl(174, 62%, 42%)" stopOpacity={0} />
+                <stop offset="5%" stopColor="hsl(220, 45%, 20%)" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="hsl(220, 45%, 20%)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -316,7 +316,7 @@ export const CashFlowChart = () => {
             <Area
               type="monotone"
               dataKey="media"
-              stroke="hsl(174, 62%, 42%)"
+              stroke="hsl(220, 45%, 20%)"
               strokeWidth={1}
               fill="url(#mediaGrad)"
               connectNulls

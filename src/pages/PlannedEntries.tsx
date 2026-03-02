@@ -135,15 +135,15 @@ const PlannedEntriesPage = () => {
     <AppLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Orçamento</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {pending.length} pendente{pending.length !== 1 ? "s" : ""} ·{" "}
+          <h1 className="text-xl font-bold text-foreground">Orcamento</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {pending.length} pendente{pending.length !== 1 ? "s" : ""} {' '}
             <span className="font-mono text-destructive">
               R$ {totalPending.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </span>
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowForm((p) => !p)} className="gap-1.5">
+        <Button size="sm" onClick={() => setShowForm((p) => !p)} className="gap-1.5 rounded-xl">
           <Plus className="h-4 w-4" />
           Novo
         </Button>
@@ -176,9 +176,9 @@ const PlannedEntriesPage = () => {
         const monthName = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
         return (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-4 mb-4">
-            <h2 className="text-sm font-semibold mb-3">
-              Orçamento do Mês — <span className="capitalize">{monthName}</span>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-6 mb-5">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
+              Orcamento do Mes — <span className="capitalize">{monthName}</span>
             </h2>
 
             {Object.keys(incomeByCategory).length > 0 && (
@@ -227,9 +227,9 @@ const PlannedEntriesPage = () => {
             initial={{ opacity: 0, y: -10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: -10, height: 0 }}
-            className="glass-card rounded-2xl p-4 mb-4 overflow-hidden"
+            className="glass-card rounded-3xl p-6 mb-5 overflow-hidden"
           >
-            <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Orçamento</h2>
+            <h2 className="text-sm font-semibold mb-3 text-foreground">Novo Orcamento</h2>
 
             {/* Débito / Crédito toggle */}
             <div className="flex items-center gap-1 mb-3 rounded-xl bg-secondary p-0.5 w-fit">
@@ -359,7 +359,7 @@ const PlannedEntriesPage = () => {
       )}
 
       {entries.length === 0 && (
-        <div className="glass-card rounded-2xl p-8 text-center text-muted-foreground text-sm">
+        <div className="glass-card rounded-3xl p-10 text-center text-muted-foreground text-sm">
           Nenhum lançamento ainda. Clique em <strong>Novo</strong> para adicionar contas fixas ou variáveis.
         </div>
       )}
@@ -418,7 +418,7 @@ function EntryRow({ entry, categoryLabels, onToggle, onDelete, onUpdate }: Entry
       <motion.div
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card rounded-xl px-4 py-3 ring-2 ring-primary/50"
+        className="glass-card rounded-2xl px-5 py-4 ring-2 ring-primary/30"
       >
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -475,7 +475,7 @@ function EntryRow({ entry, categoryLabels, onToggle, onDelete, onUpdate }: Entry
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0 }}
-      className="glass-card flex items-center gap-3 rounded-xl px-4 py-3"
+      className="glass-card flex items-center gap-3 rounded-2xl px-5 py-4 hover:shadow-md transition-shadow duration-200"
     >
       <button
         onClick={() => onToggle(entry.id, entry.conciliado)}

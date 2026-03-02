@@ -25,14 +25,14 @@ export const MiguelThermometer = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.15 }}
-      className="glass-card glow-primary rounded-2xl p-5"
+      className="glass-card rounded-3xl p-6"
     >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Plane className="h-4 w-4 text-info" />
-          <h3 className="text-sm font-medium text-info">Miguel 2027 🇪🇺→🇧🇷</h3>
+          <Plane className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">{'Miguel 2027 EU->BR'}</h3>
         </div>
-        <Sparkles className="h-4 w-4 text-info animate-pulse-glow" />
+        <Sparkles className="h-4 w-4" style={{ color: 'hsl(40 40% 75%)' }} />
       </div>
 
       <div className="mb-1 flex items-baseline gap-2">
@@ -42,13 +42,12 @@ export const MiguelThermometer = () => {
         <span className="text-sm text-muted-foreground">/ €{metaMiguelEUR.toLocaleString()}</span>
       </div>
 
-      <div className="mb-3 mt-4 h-4 overflow-hidden rounded-full bg-secondary">
+      <div className="mb-3 mt-4 h-3 overflow-hidden rounded-full bg-muted">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(percent, 100)}%` }}
           transition={{ duration: 1.5 }}
-          className="relative h-full rounded-full"
-          style={{ background: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--info)))" }}
+          className="relative h-full rounded-full bg-primary"
         >
           <div className="absolute right-1 top-1/2 -translate-y-1/2">
             <Euro className="h-2.5 w-2.5 text-primary-foreground" />
@@ -62,13 +61,13 @@ export const MiguelThermometer = () => {
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
-          <p className="font-mono text-sm font-semibold">€{reservaEUR.toLocaleString()}</p>
+        <div className="rounded-xl bg-muted px-3 py-2.5 text-center">
+          <p className="font-mono text-sm font-semibold text-foreground">{'€'}{reservaEUR.toLocaleString()}</p>
           <p className="text-[10px] text-muted-foreground">Em conta (EUR)</p>
         </div>
-        <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+        <div className="rounded-xl bg-muted px-3 py-2.5 text-center">
           <p className="font-mono text-sm font-semibold text-primary">
-            +€{brlEmEuro.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+            +{'€'}{brlEmEuro.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
           </p>
           <p className="text-[10px] text-muted-foreground">BRL convertido</p>
         </div>

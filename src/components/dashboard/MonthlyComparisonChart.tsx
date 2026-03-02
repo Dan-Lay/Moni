@@ -52,11 +52,11 @@ export const MonthlyComparisonChart = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.15 }}
-      className="glass-card rounded-2xl p-5"
+      className="glass-card rounded-3xl p-6"
     >
-      <h3 className="mb-4 text-xs sm:text-sm font-medium text-muted-foreground">
-        Comparação Mensal (3 meses)
-        {!hasData && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
+      <h3 className="mb-5 text-xs sm:text-sm font-semibold text-foreground">
+        Comparacao Mensal (3 meses)
+        {!hasData && <span className="ml-2 text-[10px] text-muted-foreground font-normal">(exemplo)</span>}
       </h3>
       <div className="min-h-0 min-w-0 relative w-full" style={{ height: 200 }}>
         <ResponsiveContainer width="99%" height="100%">

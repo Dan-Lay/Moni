@@ -39,7 +39,7 @@ export const TransactionDetailPanel = ({ transactions, label }: Props) => {
     <div className="mt-2">
       <button
         onClick={() => setOpen((p) => !p)}
-        className="flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 rounded-xl bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         Ver Detalhes
         <ChevronDown
@@ -58,7 +58,7 @@ export const TransactionDetailPanel = ({ transactions, label }: Props) => {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-2 rounded-xl border border-border bg-card/50 overflow-x-auto">
+            <div className="mt-2 rounded-xl bg-muted/50 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">

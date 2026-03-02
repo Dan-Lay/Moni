@@ -11,7 +11,7 @@ export const CardSkeleton = ({ lines = 2, hasBar = true, hasGrid = false }: Card
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="glass-card rounded-2xl p-5"
+    className="glass-card rounded-3xl p-6"
   >
     <div className="mb-4 flex items-center justify-between">
       <Skeleton className="h-4 w-32" />
@@ -44,7 +44,7 @@ export const ChartSkeleton = () => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="glass-card rounded-2xl p-5"
+    className="glass-card rounded-3xl p-6"
   >
     <Skeleton className="mb-4 h-4 w-40" />
     <div className="flex items-end gap-2 h-52">
@@ -63,7 +63,7 @@ export const ListSkeleton = ({ items = 5 }: { items?: number }) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="glass-card rounded-2xl p-5"
+    className="glass-card rounded-3xl p-6"
   >
     <Skeleton className="mb-4 h-4 w-40" />
     <div className="space-y-3">

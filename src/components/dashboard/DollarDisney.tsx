@@ -73,16 +73,16 @@ export const DollarDisney = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.25 }}
-      className="glass-card rounded-2xl p-5"
+      className="glass-card rounded-3xl p-6"
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isEuropa
-            ? <Euro className="h-4 w-4 text-info" />
-            : <DollarSign className="h-4 w-4 text-info" />
+            ? <Euro className="h-4 w-4 text-primary" />
+            : <DollarSign className="h-4 w-4 text-primary" />
           }
-          <h3 className="text-sm font-medium text-muted-foreground">
-            {isEuropa ? "Euro Europa" : "Dólar Disney"}
+          <h3 className="text-sm font-semibold text-foreground">
+            {isEuropa ? "Euro Europa" : "Dolar Disney"}
           </h3>
           {isLive
             ? <span title="Cotação ao vivo"><Wifi className="h-3 w-3 text-primary" /></span>
@@ -129,17 +129,17 @@ export const DollarDisney = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-secondary/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">{isEuropa ? "Média ECA" : "Média DCA"}</p>
-              <p className="font-mono text-sm font-semibold">R$ {media.toFixed(2)}</p>
+            <div className="rounded-xl bg-muted px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground">{isEuropa ? "Media ECA" : "Media DCA"}</p>
+              <p className="font-mono text-sm font-semibold text-foreground">R$ {media.toFixed(2)}</p>
             </div>
-            <div className="rounded-lg bg-secondary/50 px-3 py-2">
+            <div className="rounded-xl bg-muted px-3 py-2.5">
               <p className="text-[10px] text-muted-foreground">Reserva {currencyLabel}</p>
-              <p className="font-mono text-sm font-semibold">{currencySymbol}{reserva.toLocaleString()}</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{currencySymbol}{reserva.toLocaleString()}</p>
             </div>
           </div>
 
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min((reserva / meta) * 100, 100)}%` }}

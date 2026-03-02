@@ -44,7 +44,7 @@ export const BottomNav = () => {
               exit={{ y: 80, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="absolute bottom-20 left-4 right-4 rounded-2xl border border-border bg-card p-3 shadow-xl"
+              className="absolute bottom-20 left-4 right-4 rounded-3xl bg-white p-4 shadow-xl"
             >
               <div className="grid grid-cols-2 gap-2">
                 {moreItems.map((item) => {
@@ -72,7 +72,7 @@ export const BottomNav = () => {
         )}
       </AnimatePresence>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-xl lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white lg:hidden" style={{ boxShadow: '0 -1px 0 hsl(220 14% 92%), 0 -4px 12px rgb(0 0 0 / 0.04)' }}>
         <div className="relative flex items-center justify-around py-2">
           {primaryNav.map((item, idx) => {
             if (!item) {
@@ -127,7 +127,7 @@ export const BottomNav = () => {
             whileTap={{ scale: 0.9 }}
             whileHover={{ scale: 1.08 }}
             onClick={() => navigate("/upload")}
-            className="absolute left-1/2 -translate-x-1/2 -translate-y-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)] ring-4 ring-card"
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg ring-4 ring-white"
             aria-label="Lançamento Rápido"
           >
             <Plus className="h-6 w-6 text-primary-foreground" strokeWidth={2.5} />

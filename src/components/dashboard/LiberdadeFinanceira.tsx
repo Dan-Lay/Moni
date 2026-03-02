@@ -14,12 +14,12 @@ const SUBCAT_ICONS: Record<InvestmentSubcategory, React.ReactNode> = {
 };
 
 const SUBCAT_COLORS: Record<InvestmentSubcategory, string> = {
-  emergencia: "hsl(var(--info))",
-  renda_fixa: "hsl(var(--accent))",
-  previdencia: "hsl(var(--primary))",
-  fiis: "hsl(174, 62%, 55%)",
-  acoes: "hsl(280, 55%, 60%)",
-  cripto: "hsl(43, 90%, 52%)",
+  emergencia: "hsl(220, 45%, 35%)",
+  renda_fixa: "hsl(40, 40%, 55%)",
+  previdencia: "hsl(220, 45%, 20%)",
+  fiis: "hsl(160, 40%, 42%)",
+  acoes: "hsl(220, 30%, 55%)",
+  cripto: "hsl(40, 55%, 50%)",
 };
 
 export const LiberdadeFinanceira = () => {
@@ -71,30 +71,34 @@ export const LiberdadeFinanceira = () => {
   }));
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-5">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-3xl p-6 relative overflow-visible">
+      {/* Subtle champagne accent line */}
+      <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full" style={{ background: 'linear-gradient(90deg, hsl(40 40% 75%), hsl(40 40% 85%), transparent)' }} />
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Liberdade Financeira</h3>
-        <Target className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Liberdade Financeira</h3>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: 'hsl(40 40% 96%)' }}>
+          <Target className="h-4 w-4" style={{ color: 'hsl(40 40% 55%)' }} />
+        </div>
       </div>
       <div className="mb-1 flex items-baseline gap-2">
-        <span className="font-mono text-3xl font-bold">{formatBRLShort(totalRealizado)}</span>
+        <span className="font-mono text-3xl font-bold text-foreground">{formatBRLShort(totalRealizado)}</span>
         <span className="text-sm text-muted-foreground">/ {formatBRLShort(meta)}</span>
       </div>
-      <div className="mb-2 mt-4 h-3 overflow-hidden rounded-full bg-secondary">
+      <div className="mb-2 mt-4 h-2.5 overflow-hidden rounded-full bg-muted">
         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(percent, 100)}%` }} transition={{ duration: 1 }} className="h-full rounded-full bg-primary" />
       </div>
       <div className="flex justify-between text-xs">
         <span className={percent >= 100 ? "text-primary font-semibold" : "text-muted-foreground"}>{percent.toFixed(0)}% da meta</span>
         {falta > 0 ? (
-          <span className="text-warning font-mono">Faltam {formatBRLShort(falta)}</span>
+          <span className="font-mono" style={{ color: 'hsl(40 40% 50%)' }}>Faltam {formatBRLShort(falta)}</span>
         ) : (
-          <span className="flex items-center gap-1 text-primary"><TrendingUp className="h-3 w-3" /> Meta atingida!</span>
+          <span className="flex items-center gap-1 font-semibold" style={{ color: 'hsl(160 40% 42%)' }}><TrendingUp className="h-3 w-3" /> Meta atingida!</span>
         )}
       </div>
 
-      {/* Investment breakdown — always visible */}
-      <div className="mt-4 space-y-1.5">
-        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Composição</p>
+      {/* Investment breakdown */}
+      <div className="mt-5 space-y-2">
+        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Composicao</p>
         {breakdown.map((item) => {
           const barPct = item.orcado > 0 ? Math.min((item.realizado / item.orcado) * 100, 100) : (item.realizado > 0 ? 100 : 0);
           return (
