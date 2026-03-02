@@ -707,7 +707,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="block w-full max-h-[55vh] overflow-y-auto mt-4 pr-2 space-y-1">
+                <div className="custom-scroll-container block w-full mt-4 pr-2 space-y-1" style={{ overflowY: 'auto' }}>
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
                       <Collapsible>

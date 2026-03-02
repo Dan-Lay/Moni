@@ -243,3 +243,24 @@ html, body, #root {
     background-image: linear-gradient(135deg, hsl(var(--accent)), hsl(196 60% 60%));
   }
 }
+
+.custom-scroll-container {
+  overflow-y: auto !important;
+  max-height: 55vh !important;
+  scrollbar-width: auto !important; /* Para Firefox */
+}
+
+/* Para Chrome, Safari, Edge */
+.custom-scroll-container::-webkit-scrollbar {
+  display: block !important;
+  width: 10px !important;
+}
+
+.custom-scroll-container::-webkit-scrollbar-thumb {
+  background-color: #888 !important;
+  border-radius: 5px !important;
+}
+
+.custom-scroll-container::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+}
