@@ -331,3 +331,36 @@ export async function deleteTransactions(ids: string[]): Promise<void> {
   const { error } = await supabase.from("transactions").delete().in("id", ids);
   if (error) throw error;
 }
+
+// ── Category Budgets CRUD ──
+
+import { CategoryBudget } from "./types";
+
+export function mapCategoryBudget(r: Record<string, any>): CategoryBudget {
+  return { id: r.id, category: r.category, month: r.month, amount: Number(r.amount) || 0 };
+}
+
+export async function fetchCategoryBudgets(userId: string, month: string): Promise<CategoryBudget[]> {
+  const { data, error } = await supabase
+    .from("category_budgets")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("month", month);
+  if (error) throw error;
+  return (data || []).map(mapCategoryBudget);
+}
+
+export async function upsertCategoryBudget(userId: string, category: string, month: string, amount: number): Promise<CategoryBudget> {
+  const { data, error } = await supabase
+    .from("category_budgets")
+    .upsert({ user_id: userId, category, month, amount }, { onConflict: "user_id,category,month" })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapCategoryBudget(data);
+}
+
+export async function deleteCategoryBudget(id: string): Promise<void> {
+  const { error } = await supabase.from("category_budgets").delete().eq("id", id);
+  if (error) throw error;
+}

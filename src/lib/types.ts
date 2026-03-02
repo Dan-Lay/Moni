@@ -190,6 +190,13 @@ export interface DesapegoItem {
   readonly sold: boolean;
 }
 
+export interface CategoryBudget {
+  readonly id: string;
+  readonly category: string;   // e.g. "fixas" or "investimentos:emergencia"
+  readonly month: string;      // 'YYYY-MM'
+  readonly amount: number;     // valor orçado (positivo)
+}
+
 export interface AppData {
   readonly transactions: Transaction[];
   readonly config: FinancialConfig;
@@ -197,6 +204,7 @@ export interface AppData {
   readonly jantaresUsados: number;
   readonly cinemasUsados: number;
   readonly plannedEntries: PlannedEntry[];
+  readonly categoryBudgets: CategoryBudget[];
   readonly updatedAt: ISODateString;
 }
 

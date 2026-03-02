@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 import {
-  AppData, Transaction, FinancialConfig, DesapegoItem, PlannedEntry,
+  AppData, Transaction, FinancialConfig, DesapegoItem, PlannedEntry, CategoryBudget,
   EfficiencyStats, MonthSummary, EstablishmentRank,
   SpouseProfile, toISODate, CATEGORY_LABELS,
 } from "@/lib/types";
@@ -48,6 +48,9 @@ interface FinanceContextType {
   addPlannedEntries: (entries: PlannedEntry[]) => Promise<void>;
   updatePlannedEntry: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
   deletePlannedEntry: (id: string) => Promise<void>;
+  upsertCategoryBudget: (category: string, month: string, amount: number) => Promise<void>;
+  deleteCategoryBudget: (id: string) => Promise<void>;
+  loadBudgetsForMonth: (month: string) => Promise<void>;
   reload: () => void;
 }
 
@@ -81,6 +84,7 @@ function getEmptyData(): AppData {
     jantaresUsados: 0,
     cinemasUsados: 0,
     plannedEntries: [],
+    categoryBudgets: [],
     updatedAt: toISODate(new Date().toISOString()),
   };
 }
@@ -118,11 +122,13 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsLoading(true);
     try {
-      const [txs, cfgResult, entries, desapego] = await Promise.all([
+      const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+      const [txs, cfgResult, entries, desapego, budgets] = await Promise.all([
         api.fetchAllTransactions(user.id),
         api.fetchConfig(user.id),
         api.fetchPlannedEntries(user.id),
         api.fetchDesapegoItems(user.id),
+        api.fetchCategoryBudgets(user.id, currentMonth),
       ]);
       setConfigId(cfgResult.id);
       setProfileFilter((user as any).defaultProfile as ProfileFilter || "todos");
@@ -133,6 +139,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         jantaresUsados: cfgResult.jantaresUsados,
         cinemasUsados: cfgResult.cinemasUsados ?? 0,
         plannedEntries: entries,
+        categoryBudgets: budgets,
         updatedAt: toISODate(new Date().toISOString()),
       });
     } catch (err) {
@@ -212,6 +219,22 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
           jantaresUsados: payload.new.jantares_usados ?? prev.jantaresUsados,
           cinemasUsados: payload.new.cinemas_usados ?? prev.cinemasUsados,
         }));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "category_budgets", filter: `user_id=eq.${user.id}` }, (payload) => {
+        setData((prev) => {
+          const budgets = [...prev.categoryBudgets];
+          if (payload.eventType === "INSERT") {
+            const b = realPB.mapCategoryBudget(payload.new);
+            if (!budgets.find((x) => x.id === b.id)) budgets.push(b);
+          } else if (payload.eventType === "UPDATE") {
+            const idx = budgets.findIndex((x) => x.id === payload.new.id);
+            if (idx >= 0) budgets[idx] = realPB.mapCategoryBudget(payload.new);
+          } else if (payload.eventType === "DELETE") {
+            const idx = budgets.findIndex((x) => x.id === payload.old.id);
+            if (idx >= 0) budgets.splice(idx, 1);
+          }
+          return { ...prev, categoryBudgets: budgets };
+        });
       })
       .subscribe();
 
@@ -337,6 +360,29 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, [loadData]);
 
+  const handleUpsertCategoryBudget = useCallback(async (category: string, month: string, amount: number) => {
+    if (!user) return;
+    const result = await api.upsertCategoryBudget(user.id, category, month, amount);
+    setData((prev) => {
+      const existing = prev.categoryBudgets.findIndex((b) => b.category === category && b.month === month);
+      const budgets = [...prev.categoryBudgets];
+      if (existing >= 0) budgets[existing] = result;
+      else budgets.push(result);
+      return { ...prev, categoryBudgets: budgets };
+    });
+  }, [user, api]);
+
+  const handleDeleteCategoryBudget = useCallback(async (id: string) => {
+    await api.deleteCategoryBudget(id);
+    setData((prev) => ({ ...prev, categoryBudgets: prev.categoryBudgets.filter((b) => b.id !== id) }));
+  }, [api]);
+
+  const handleLoadBudgetsForMonth = useCallback(async (month: string) => {
+    if (!user) return;
+    const budgets = await api.fetchCategoryBudgets(user.id, month);
+    setData((prev) => ({ ...prev, categoryBudgets: budgets }));
+  }, [user, api]);
+
   return (
     <FinanceContext.Provider
       value={{
@@ -350,6 +396,9 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         addPlannedEntries: handleAddPlannedEntries,
         updatePlannedEntry: handleUpdatePlannedEntry,
         deletePlannedEntry: handleDeletePlannedEntry,
+        upsertCategoryBudget: handleUpsertCategoryBudget,
+        deleteCategoryBudget: handleDeleteCategoryBudget,
+        loadBudgetsForMonth: handleLoadBudgetsForMonth,
         reload,
       }}
     >
