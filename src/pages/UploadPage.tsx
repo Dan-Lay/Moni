@@ -601,7 +601,7 @@ const UploadPage = () => {
           )}
 
           {/* Transaction list */}
-          <div className="glass-card flex flex-col rounded-2xl p-4 h-[70vh] min-h-[400px] w-full mt-4">
+          <div className="glass-card rounded-2xl p-4 w-full mt-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Transações ({reviewRows.length}){ignoredCount > 0 && <span className="text-muted-foreground font-normal"> · {ignoredCount} ignorada(s)</span>}</h3>
               <div className="flex flex-wrap items-center gap-2">
@@ -707,7 +707,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="flex-1 overflow-y-auto min-h-0 mt-4 pr-2 space-y-1">
+                <div className="block w-full max-h-[55vh] overflow-y-auto mt-4 pr-2 space-y-1">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
                       <Collapsible>
