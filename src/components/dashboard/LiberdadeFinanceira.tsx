@@ -112,8 +112,11 @@ export const LiberdadeFinanceira = () => {
                   style={{ background: item.color }}
                 />
               </div>
-              <span className="text-[10px] font-mono font-semibold w-24 text-right">
-                {formatBRLShort(item.realizado)}{item.orcado > 0 ? ` / ${formatBRLShort(item.orcado)}` : ""}
+              <span className="text-[10px] font-mono font-semibold w-32 text-right shrink-0">
+                {formatBRLShort(item.realizado)} / {item.orcado > 0 ? formatBRLShort(item.orcado) : "—"}{" "}
+                <span className={item.orcado > 0 && item.realizado >= item.orcado ? "text-primary" : "text-muted-foreground"}>
+                  ({item.orcado > 0 ? `${Math.min(Math.round((item.realizado / item.orcado) * 100), 999)}%` : "?%"})
+                </span>
               </span>
             </div>
           );

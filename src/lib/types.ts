@@ -151,6 +151,7 @@ export interface Transaction {
   readonly cardNetwork: CardNetwork;    // bandeira do cartão
   readonly isConfirmed: boolean;        // true = categoria confirmada pelo usuário
   readonly reconciliationStatus: ReconciliationStatus; // status de conciliação bancária
+  readonly isIgnored?: boolean; // true = lançamento ignorado pelo utilizador
 }
 
 export interface FinancialConfig {
