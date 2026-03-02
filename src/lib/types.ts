@@ -47,11 +47,11 @@ export const RECONCILIATION_LABELS: Record<ReconciliationStatus, string> = {
 };
 
 // ── Recurrence types for manual entries ──
-export type RecurrenceType = "unico" | "diario" | "quinzenal" | "mensal" | "anual";
+export type RecurrenceType = "unico" | "semanal" | "quinzenal" | "mensal" | "anual";
 
 export const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
   unico: "Único",
-  diario: "Diário",
+  semanal: "Semanal",
   quinzenal: "Quinzenal",
   mensal: "Mensal",
   anual: "Anual",
@@ -84,6 +84,7 @@ export interface PlannedEntry {
   readonly spouseProfile: SpouseProfile;
   readonly conciliado: boolean;
   readonly realAmount?: number; // actual amount after reconciliation
+  readonly groupId?: string; // links recurring entries together
   readonly createdAt: ISODateString;
 }
 

@@ -45,6 +45,7 @@ interface FinanceContextType {
   updateJantares: (count: number) => Promise<void>;
   updateCinemas: (count: number) => Promise<void>;
   addPlannedEntry: (e: PlannedEntry) => Promise<void>;
+  addPlannedEntries: (entries: PlannedEntry[]) => Promise<void>;
   updatePlannedEntry: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
   deletePlannedEntry: (id: string) => Promise<void>;
   reload: () => void;
@@ -293,6 +294,12 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setData((prev) => ({ ...prev, plannedEntries: [...prev.plannedEntries, created] }));
   }, [user, api]);
 
+  const handleAddPlannedEntries = useCallback(async (entries: PlannedEntry[]) => {
+    if (!user || entries.length === 0) return;
+    const created = await api.createPlannedEntries(entries, user.id);
+    setData((prev) => ({ ...prev, plannedEntries: [...prev.plannedEntries, ...created] }));
+  }, [user, api]);
+
   const handleUpdatePlannedEntry = useCallback(async (id: string, patch: Partial<PlannedEntry>) => {
     const updated = await api.updatePlannedEntryRemote(id, patch);
     setData((prev) => ({
@@ -340,6 +347,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         deleteTransactions: handleDeleteTransactions,
         updateConfig, updateDesapego, updateJantares, updateCinemas,
         addPlannedEntry: handleAddPlannedEntry,
+        addPlannedEntries: handleAddPlannedEntries,
         updatePlannedEntry: handleUpdatePlannedEntry,
         deletePlannedEntry: handleDeletePlannedEntry,
         reload,

@@ -42,6 +42,7 @@ export function mapPlannedEntry(r: Record<string, any>): PlannedEntry {
     spouseProfile: (r.spouse_profile || "familia") as SpouseProfile,
     conciliado: !!r.conciliado,
     realAmount: r.real_amount ?? undefined,
+    groupId: r.group_id ?? undefined,
     createdAt: toISODate(r.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]),
   };
 }
@@ -254,10 +255,30 @@ export async function createPlannedEntry(entry: PlannedEntry, userId: string): P
     spouse_profile: entry.spouseProfile,
     conciliado: entry.conciliado,
     real_amount: entry.realAmount ?? null,
+    group_id: entry.groupId ?? null,
     user_id: userId,
   }).select().single();
   if (error) throw error;
   return mapPlannedEntry(data);
+}
+
+export async function createPlannedEntries(entries: PlannedEntry[], userId: string): Promise<PlannedEntry[]> {
+  const rows = entries.map((entry) => ({
+    name: entry.name,
+    amount: entry.amount,
+    category: entry.category,
+    subcategory: entry.subcategory ?? null,
+    due_date: entry.dueDate,
+    recurrence: entry.recurrence,
+    spouse_profile: entry.spouseProfile,
+    conciliado: entry.conciliado,
+    real_amount: entry.realAmount ?? null,
+    group_id: entry.groupId ?? null,
+    user_id: userId,
+  }));
+  const { data, error } = await supabase.from("planned_entries").insert(rows).select();
+  if (error) throw error;
+  return (data || []).map(mapPlannedEntry);
 }
 
 export async function updatePlannedEntryRemote(id: string, patch: Partial<PlannedEntry>): Promise<PlannedEntry> {
