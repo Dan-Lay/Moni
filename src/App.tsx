@@ -18,7 +18,7 @@ import LoginPage from "./pages/LoginPage";
 import Verify2FAPage from "./pages/Verify2FAPage";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient(); // v2
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
