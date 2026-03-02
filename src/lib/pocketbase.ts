@@ -337,7 +337,9 @@ export async function deleteTransactions(ids: string[]): Promise<void> {
 import { CategoryBudget } from "./types";
 
 export function mapCategoryBudget(r: Record<string, any>): CategoryBudget {
-  return { id: r.id, category: r.category, month: r.month, amount: Number(r.amount) || 0 };
+  // Reconstruct composite key: "investimentos" + "emergencia" → "investimentos:emergencia"
+  const cat = r.subcategory ? `${r.category}:${r.subcategory}` : r.category;
+  return { id: r.id, category: cat, month: r.month, amount: Number(r.amount) || 0 };
 }
 
 export async function fetchCategoryBudgets(userId: string, month: string): Promise<CategoryBudget[]> {
@@ -350,10 +352,10 @@ export async function fetchCategoryBudgets(userId: string, month: string): Promi
   return (data || []).map(mapCategoryBudget);
 }
 
-export async function upsertCategoryBudget(userId: string, category: string, month: string, amount: number): Promise<CategoryBudget> {
+export async function upsertCategoryBudget(userId: string, category: string, month: string, amount: number, subcategory?: string): Promise<CategoryBudget> {
   const { data, error } = await supabase
     .from("category_budgets")
-    .upsert({ user_id: userId, category, month, amount }, { onConflict: "user_id,category,month" })
+    .upsert({ user_id: userId, category, month, subcategory: subcategory || '', amount }, { onConflict: "user_id,month,category,subcategory" })
     .select()
     .single();
   if (error) throw error;
