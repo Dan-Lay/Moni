@@ -119,7 +119,7 @@ export async function fetchCategoryBudgets(_userId: string, _month: string): Pro
   return categoryBudgets.filter((b) => b.month === _month);
 }
 
-export async function upsertCategoryBudget(_userId: string, category: string, month: string, amount: number): Promise<CategoryBudget> {
+export async function upsertCategoryBudget(_userId: string, category: string, month: string, amount: number, _subcategory?: string): Promise<CategoryBudget> {
   const idx = categoryBudgets.findIndex((b) => b.category === category && b.month === month);
   if (idx >= 0) {
     categoryBudgets[idx] = { ...categoryBudgets[idx], amount };

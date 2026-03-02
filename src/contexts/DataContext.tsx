@@ -362,7 +362,11 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 
   const handleUpsertCategoryBudget = useCallback(async (category: string, month: string, amount: number) => {
     if (!user) return;
-    const result = await api.upsertCategoryBudget(user.id, category, month, amount);
+    // Split "investimentos:emergencia" into category + subcategory
+    const parts = category.split(":");
+    const cat = parts[0];
+    const subcat = parts.length > 1 ? parts.slice(1).join(":") : undefined;
+    const result = await api.upsertCategoryBudget(user.id, cat, month, amount, subcat);
     setData((prev) => {
       const existing = prev.categoryBudgets.findIndex((b) => b.category === category && b.month === month);
       const budgets = [...prev.categoryBudgets];
