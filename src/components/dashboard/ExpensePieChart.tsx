@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useFinance } from "@/contexts/DataContext";
@@ -36,21 +37,50 @@ const getColor = (name: string, index: number): string =>
   CATEGORY_FIXED_COLORS[name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 
 export const ExpensePieChart = () => {
-  const { finance, isLoading } = useFinance();
+  const { finance, data, isLoading } = useFinance();
+
+  // Merge realizado (transactions) + orçado pendente (planned entries)
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    // 1. Realizado: from categoryBreakdown (already filtered: amount < 0, !isIgnored, != ja_conciliado)
+    const realizado: Record<string, number> = {};
+    for (const [cat, val] of Object.entries(finance.categoryBreakdown)) {
+      const label = CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] || cat;
+      realizado[label] = (realizado[label] || 0) + val;
+    }
+
+    // 2. Orçado pendente: plannedEntries do mês atual, amount < 0, conciliado === false
+    const orcadoPendente: Record<string, number> = {};
+    for (const entry of data.plannedEntries) {
+      if (entry.conciliado) continue;
+      if (entry.amount >= 0) continue;
+      const d = new Date(entry.dueDate);
+      if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+      const label = CATEGORY_LABELS[entry.category as keyof typeof CATEGORY_LABELS] || entry.category;
+      orcadoPendente[label] = (orcadoPendente[label] || 0) + Math.abs(entry.amount);
+    }
+
+    // 3. Merge: valor_final = realizado + orcado_pendente
+    const allCategories = new Set([...Object.keys(realizado), ...Object.keys(orcadoPendente)]);
+    const merged = Array.from(allCategories)
+      .map((name) => ({
+        name,
+        value: Math.round((realizado[name] || 0) + (orcadoPendente[name] || 0)),
+      }))
+      .filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+
+    return merged.length > 0 ? merged : null;
+  }, [finance.categoryBreakdown, data.plannedEntries]);
+
   if (isLoading) return <ChartSkeleton />;
 
-  const byCategory = finance.categoryBreakdown;
-  const hasData = Object.keys(byCategory).length > 0;
-  const chartData = hasData
-    ? Object.entries(byCategory)
-        .map(([cat, val]) => ({
-          name: CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] || cat,
-          value: Math.round(val),
-        }))
-        .sort((a, b) => b.value - a.value)
-    : DEMO_DATA;
-
-  const total = chartData.reduce((a, d) => a + d.value, 0);
+  const displayData = chartData ?? DEMO_DATA;
+  const hasData = chartData !== null;
+  const total = displayData.reduce((a, d) => a + d.value, 0);
 
   return (
     <motion.div
@@ -63,12 +93,12 @@ export const ExpensePieChart = () => {
         Gastos por Categoria
         {!hasData && <span className="ml-2 text-[10px] text-accent">(exemplo)</span>}
       </h3>
-      <div className="flex items-start gap-3 flex-col sm:flex-row min-w-0">
-        <div className="h-40 w-full sm:w-40 sm:h-40 flex-shrink-0 min-w-0 relative">
-          <ResponsiveContainer width="99%" height="100%">
+      <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
+        <div className="h-44 w-44 flex-shrink-0 relative">
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={chartData}
+                data={displayData}
                 cx="50%"
                 cy="50%"
                 innerRadius={45}
@@ -78,13 +108,8 @@ export const ExpensePieChart = () => {
                 strokeWidth={0}
                 isAnimationActive={false}
               >
-                {chartData.map((item, i) => (
-                  <Cell
-                    key={i}
-                    fill={getColor(item.name, i)}
-                    stroke={item.name === "Ajuda Mãe" ? "hsl(270, 70%, 72%)" : "none"}
-                    strokeWidth={item.name === "Ajuda Mãe" ? 2 : 0}
-                  />
+                {displayData.map((item, i) => (
+                  <Cell key={i} fill={getColor(item.name, i)} />
                 ))}
               </Pie>
               <Tooltip
@@ -104,8 +129,8 @@ export const ExpensePieChart = () => {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex-1 space-y-2">
-          {chartData.map((item, i) => {
+        <div className="w-full md:flex-1 space-y-2 mt-2 md:mt-0">
+          {displayData.map((item, i) => {
             const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0";
             return (
               <div
@@ -115,14 +140,9 @@ export const ExpensePieChart = () => {
                 <div className="flex items-center gap-2">
                   <div
                     className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                    style={{
-                      background: getColor(item.name, i),
-                      boxShadow: item.name === "Ajuda Mãe" ? `0 0 6px hsl(270, 70%, 58%)` : "none",
-                    }}
+                    style={{ background: getColor(item.name, i) }}
                   />
-                  <span className={`text-muted-foreground ${item.name === "Ajuda Mãe" ? "font-semibold" : ""}`}>
-                    {item.name}
-                  </span>
+                  <span className="text-muted-foreground">{item.name}</span>
                 </div>
                 <span className="font-mono font-medium text-foreground">{pct}%</span>
               </div>
