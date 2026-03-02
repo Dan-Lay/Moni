@@ -374,10 +374,10 @@ const Transactions = () => {
                           <SelectContent>{Object.entries(categoryLabels).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}</SelectContent>
                         </Select>
                         {editCat === 'investimentos' && (
-                          <Select value={editSubcat} onValueChange={(v) => setEditSubcat(v)}>
+                          <Select value={editSubcat || "none"} onValueChange={(v) => setEditSubcat(v === "none" ? "" : v)}>
                             <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Sub..." /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Nenhuma</SelectItem>
+                              <SelectItem value="none">Nenhuma</SelectItem>
                               {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}
                             </SelectContent>
                           </Select>

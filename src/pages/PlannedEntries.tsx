@@ -184,10 +184,10 @@ const PlannedEntriesPage = () => {
                 </SelectContent>
               </Select>
               {form.category === 'investimentos' && (
-                <Select value={form.subcategory} onValueChange={(v) => setForm({ ...form, subcategory: v })}>
+                <Select value={form.subcategory || "none"} onValueChange={(v) => setForm({ ...form, subcategory: v === "none" ? "" : v })}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Subcategoria..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma</SelectItem>
+                    <SelectItem value="none">Nenhuma</SelectItem>
                     {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([v, l]) => (
                       <SelectItem key={v} value={v}>{l}</SelectItem>
                     ))}
