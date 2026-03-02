@@ -471,7 +471,6 @@ const UploadPage = () => {
               </button>
             ))}
           </div>
-
           {/* Drop zone */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
@@ -602,7 +601,7 @@ const UploadPage = () => {
           )}
 
           {/* Transaction list */}
-          <div className="glass-card rounded-2xl p-4 flex flex-col max-h-[90vh] overflow-hidden">
+          <div className="glass-card flex flex-col rounded-2xl p-4 h-[70vh] min-h-[400px] w-full mt-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Transações ({reviewRows.length}){ignoredCount > 0 && <span className="text-muted-foreground font-normal"> · {ignoredCount} ignorada(s)</span>}</h3>
               <div className="flex flex-wrap items-center gap-2">
@@ -708,8 +707,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="flex-1 min-h-0 overflow-y-auto border rounded-md p-2 pr-3">
-                  <div className="space-y-1 pr-1">
+                <div className="flex-1 overflow-y-auto min-h-0 mt-4 pr-2 space-y-1">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
                       <Collapsible>
@@ -722,7 +720,6 @@ const UploadPage = () => {
                         </CollapsibleContent>
                       </Collapsible>
                     )}
-                  </div>
                 </div>
               );
             })()}
