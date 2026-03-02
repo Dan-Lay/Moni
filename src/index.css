@@ -8,10 +8,10 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
+    --background: 210 20% 96%;
     --foreground: 200 40% 12%;
 
-    --card: 210 14% 95%;
+    --card: 0 0% 100%;
     --card-foreground: 200 40% 12%;
 
     --popover: 0 0% 100%;
@@ -32,8 +32,8 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 200 16% 90%;
-    --input: 200 16% 90%;
+    --border: 210 16% 86%;
+    --input: 210 16% 86%;
     --ring: 174 62% 42%;
 
     --radius: 0.75rem;
@@ -187,7 +187,7 @@ html, body, #root {
     overflow: hidden !important;
   }
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-card border border-border shadow-sm;
     overflow: hidden !important;
     min-width: 0 !important;
     min-height: 0 !important;
