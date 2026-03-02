@@ -127,7 +127,7 @@ export function sumByCategory(
   const filtered = profile === "todos" ? txs : txs.filter((t) => t.spouseProfile === profile || t.spouseProfile === "familia");
   const result: Record<string, number> = {};
   for (const t of filtered) {
-    if (t.amount < 0) {
+    if (t.amount < 0 && t.reconciliationStatus !== "ja_conciliado") {
       result[t.category] = (result[t.category] || 0) + Math.abs(t.amount);
     }
   }

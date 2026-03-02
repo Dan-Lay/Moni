@@ -2,40 +2,106 @@ import { TrendingUp, Target, Shield, Landmark, BarChart3, Bitcoin, Building2, Pi
 import { motion } from "framer-motion";
 import { useFinance } from "@/contexts/DataContext";
 import { CardSkeleton } from "./Skeletons";
-import { formatBRLShort } from "@/lib/types";
+import { formatBRLShort, INVESTMENT_SUBCATEGORY_ORDER, INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory } from "@/lib/types";
 
-interface InvestmentBreakdown {
-  label: string;
-  key: string;
-  amount: number;
-  icon: React.ReactNode;
-  color: string;
-}
+const SUBCAT_ICONS: Record<InvestmentSubcategory, React.ReactNode> = {
+  emergencia: <PiggyBank className="h-3 w-3" />,
+  renda_fixa: <Landmark className="h-3 w-3" />,
+  previdencia: <Shield className="h-3 w-3" />,
+  fiis: <Building2 className="h-3 w-3" />,
+  acoes: <BarChart3 className="h-3 w-3" />,
+  cripto: <Bitcoin className="h-3 w-3" />,
+};
+
+const SUBCAT_COLORS: Record<InvestmentSubcategory, string> = {
+  emergencia: "hsl(var(--info))",
+  renda_fixa: "hsl(var(--accent))",
+  previdencia: "hsl(var(--primary))",
+  fiis: "hsl(174, 62%, 55%)",
+  acoes: "hsl(280, 55%, 60%)",
+  cripto: "hsl(43, 90%, 52%)",
+};
 
 export const LiberdadeFinanceira = () => {
   const { data, finance, isLoading } = useFinance();
   if (isLoading) return <CardSkeleton hasBar />;
 
-  const { salarioLiquido, aportePercentual } = data.config;
-  const meta = salarioLiquido * (aportePercentual / 100);
-  const investido = finance.monthTransactions
-    .filter((t) => t.category === "investimentos" && t.amount < 0)
-    .reduce((a, t) => a + Math.abs(t.amount), 0);
+  const { aportePercentual } = data.config;
+
+  // ── Revenue (denominator): all income excluding duplicates ──
+  const validIncome = finance.monthTransactions
+    .filter((t) => t.amount > 0 && t.reconciliationStatus !== "ja_conciliado")
+    .reduce((a, t) => a + t.amount, 0);
+
+  // Also add credit planned entries (not conciliado)
+  const plannedIncome = (data.plannedEntries ?? [])
+    .filter((e) => {
+      if (e.conciliado) return false;
+      if (e.amount <= 0) return false;
+      const d = new Date(e.dueDate);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .reduce((a, e) => a + e.amount, 0);
+
+  const totalRevenue = validIncome + plannedIncome;
+  const meta = totalRevenue * (aportePercentual / 100);
+
+  // ── Invested (numerator): real transactions ──
+  const realInvestments = finance.monthTransactions
+    .filter((t) => t.category === "investimentos" && t.amount < 0 && t.reconciliationStatus !== "ja_conciliado");
+  const investidoReal = realInvestments.reduce((a, t) => a + Math.abs(t.amount), 0);
+
+  // Planned investment entries (not conciliado, current month)
+  const plannedInvestments = (data.plannedEntries ?? []).filter((e) => {
+    if (e.conciliado) return false;
+    if (e.category !== "investimentos") return false;
+    const d = new Date(e.dueDate);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  const investidoPlanned = plannedInvestments
+    .filter((e) => e.amount < 0)
+    .reduce((a, e) => a + Math.abs(e.amount), 0);
+
   const desapegoVendido = data.desapegoItems.filter((i) => i.sold).reduce((a, i) => a + i.value, 0);
-  const totalAporte = investido + desapegoVendido;
+  const totalAporte = investidoReal + investidoPlanned + desapegoVendido;
   const percent = meta > 0 ? (totalAporte / meta) * 100 : 0;
   const falta = meta - totalAporte;
 
-  // Investment breakdown from config (mock provides these)
-  const cfg = data.config as any;
-  const breakdown: InvestmentBreakdown[] = [
-    { label: "Previdência", key: "previdencia", amount: cfg.investPrevidencia ?? 300, icon: <Shield className="h-3 w-3" />, color: "hsl(var(--primary))" },
-    { label: "Emergência", key: "emergencia", amount: cfg.investEmergencia ?? 400, icon: <PiggyBank className="h-3 w-3" />, color: "hsl(var(--info))" },
-    { label: "Renda Fixa", key: "rendaFixa", amount: cfg.investRendaFixa ?? 350, icon: <Landmark className="h-3 w-3" />, color: "hsl(var(--accent))" },
-    { label: "FIIs", key: "fiis", amount: cfg.investFIIs ?? 300, icon: <Building2 className="h-3 w-3" />, color: "hsl(174, 62%, 55%)" },
-    { label: "Ações", key: "acoes", amount: cfg.investAcoes ?? 250, icon: <BarChart3 className="h-3 w-3" />, color: "hsl(280, 55%, 60%)" },
-    { label: "Bitcoin", key: "bitcoin", amount: cfg.investBitcoin ?? 200, icon: <Bitcoin className="h-3 w-3" />, color: "hsl(43, 90%, 52%)" },
-  ];
+  // ── Breakdown by subcategory ──
+  const subcatTotals: Record<string, number> = {};
+  for (const t of realInvestments) {
+    const sub = t.subcategory || "sem_sub";
+    subcatTotals[sub] = (subcatTotals[sub] || 0) + Math.abs(t.amount);
+  }
+  for (const e of plannedInvestments) {
+    if (e.amount < 0) {
+      const sub = e.subcategory || "sem_sub";
+      subcatTotals[sub] = (subcatTotals[sub] || 0) + Math.abs(e.amount);
+    }
+  }
+
+  const breakdown = INVESTMENT_SUBCATEGORY_ORDER
+    .filter((key) => (subcatTotals[key] || 0) > 0)
+    .map((key) => ({
+      key,
+      label: INVESTMENT_SUBCATEGORY_LABELS[key],
+      amount: subcatTotals[key] || 0,
+      icon: SUBCAT_ICONS[key],
+      color: SUBCAT_COLORS[key],
+    }));
+
+  // Add "sem subcategoria" if exists
+  if (subcatTotals["sem_sub"]) {
+    breakdown.push({
+      key: "sem_sub" as any,
+      label: "Sem Subcategoria",
+      amount: subcatTotals["sem_sub"],
+      icon: <Target className="h-3 w-3" />,
+      color: "hsl(var(--muted-foreground))",
+    });
+  }
 
   const totalBreakdown = breakdown.reduce((a, b) => a + b.amount, 0);
 
@@ -62,30 +128,32 @@ export const LiberdadeFinanceira = () => {
       </div>
 
       {/* Investment breakdown */}
-      <div className="mt-4 space-y-1.5">
-        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Composição</p>
-        {breakdown.map((item) => {
-          const pct = totalBreakdown > 0 ? (item.amount / totalBreakdown) * 100 : 0;
-          return (
-            <div key={item.key} className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 w-24 shrink-0">
-                <span style={{ color: item.color }}>{item.icon}</span>
-                <span className="text-[10px] text-muted-foreground truncate">{item.label}</span>
+      {breakdown.length > 0 && (
+        <div className="mt-4 space-y-1.5">
+          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Composição</p>
+          {breakdown.map((item) => {
+            const pct = totalBreakdown > 0 ? (item.amount / totalBreakdown) * 100 : 0;
+            return (
+              <div key={item.key} className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 w-24 shrink-0">
+                  <span style={{ color: item.color }}>{item.icon}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{item.label}</span>
+                </div>
+                <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.8 }}
+                    className="h-full rounded-full"
+                    style={{ background: item.color }}
+                  />
+                </div>
+                <span className="text-[10px] font-mono font-semibold w-16 text-right">{formatBRLShort(item.amount)}</span>
               </div>
-              <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-secondary">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.8 }}
-                  className="h-full rounded-full"
-                  style={{ background: item.color }}
-                />
-              </div>
-              <span className="text-[10px] font-mono font-semibold w-16 text-right">{formatBRLShort(item.amount)}</span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -49,10 +49,12 @@ export const ExpensePieChart = () => {
   const byCategory = finance.categoryBreakdown;
   const hasData = Object.keys(byCategory).length > 0;
   const chartData = hasData
-    ? Object.entries(byCategory).map(([cat, val]) => ({
-        name: CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] || cat,
-        value: Math.round(val),
-      }))
+    ? Object.entries(byCategory)
+        .map(([cat, val]) => ({
+          name: CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] || cat,
+          value: Math.round(val),
+        }))
+        .sort((a, b) => b.value - a.value)
     : DEMO_DATA;
 
   const total = chartData.reduce((a, d) => a + d.value, 0);

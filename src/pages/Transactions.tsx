@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS, ReconciliationStatus, RECONCILIATION_LABELS } from "@/lib/types";
+import { SPOUSE_LABELS, TransactionCategory, SpouseProfile, RECURRENCE_LABELS, ReconciliationStatus, RECONCILIATION_LABELS, INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory } from "@/lib/types";
 import { getPriceAlerts } from "@/lib/storage";
 import { upsertCategorizationRule } from "@/lib/rules-engine";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +39,7 @@ interface UnifiedRow {
   treatedName?: string;
   amount: number;
   category: TransactionCategory;
+  subcategory?: string;
   spouseProfile: SpouseProfile;
   source: "upload" | "lancamento";
   conciliado?: boolean;
@@ -67,6 +68,7 @@ const Transactions = () => {
   const [onlyConfirmed, setOnlyConfirmed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCat, setEditCat] = useState<TransactionCategory>("outros");
+  const [editSubcat, setEditSubcat] = useState<string>("");
   const [editAmount, setEditAmount] = useState("");
   const [editAuthor, setEditAuthor] = useState<SpouseProfile>("marido");
   const [editDesc, setEditDesc] = useState("");
@@ -92,6 +94,7 @@ const Transactions = () => {
         treatedName: t.treatedName,
         amount: t.amount,
         category: t.category,
+        subcategory: t.subcategory,
         spouseProfile: t.spouseProfile,
         source: "upload" as const,
         isInternational: t.isInternational,
@@ -108,6 +111,7 @@ const Transactions = () => {
       description: e.name,
       amount: e.amount,
       category: e.category,
+      subcategory: e.subcategory,
       spouseProfile: e.spouseProfile,
       source: "lancamento" as const,
       conciliado: e.conciliado,
@@ -137,6 +141,7 @@ const Transactions = () => {
   function startEdit(row: UnifiedRow) {
     setEditingId(row.id);
     setEditCat(row.category);
+    setEditSubcat(row.subcategory || "");
     setEditAmount(Math.abs(row.amount).toFixed(2));
     setEditAuthor(row.spouseProfile);
     setEditDesc(row.description);
@@ -156,6 +161,7 @@ const Transactions = () => {
       const realId = editingId.replace("pe_", "");
       await updatePlannedEntry(realId, {
         category: editCat,
+        subcategory: editCat === 'investimentos' ? (editSubcat as any || undefined) : undefined,
         amount: isNaN(parsed) ? undefined : -Math.abs(parsed) as any,
         spouseProfile: editAuthor,
         name: editDesc || undefined,
@@ -163,6 +169,7 @@ const Transactions = () => {
     } else {
       await updateTransaction(editingId, {
         category: editCat,
+        subcategory: editCat === 'investimentos' ? (editSubcat as any || undefined) : undefined,
         amount: isNaN(parsed) ? undefined : -Math.abs(parsed) as any,
         spouseProfile: editAuthor,
         description: editDesc || undefined,
@@ -174,7 +181,7 @@ const Transactions = () => {
     // Learning: upsert rule when category was changed
     if (categoryChanged && user?.id) {
       const keyword = originalRow.description || "";
-      upsertCategorizationRule(keyword, editCat, editAuthor, user.id, user.familyId);
+      upsertCategorizationRule(keyword, editCat, editAuthor, user.id, user.familyId, editCat === 'investimentos' ? editSubcat : undefined);
     }
 
     setEditingId(null);
@@ -362,10 +369,19 @@ const Transactions = () => {
                         <Input value={editTreatedName} onChange={(e) => setEditTreatedName(e.target.value)} className="h-7 text-xs flex-1" placeholder="Nome Tratado (apelido amigável)" />
                       )}
                       <div className="flex flex-wrap gap-2">
-                        <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
+                        <Select value={editCat} onValueChange={(v) => { setEditCat(v as TransactionCategory); if (v !== 'investimentos') setEditSubcat(''); }}>
                           <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>{Object.entries(categoryLabels).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}</SelectContent>
                         </Select>
+                        {editCat === 'investimentos' && (
+                          <Select value={editSubcat} onValueChange={(v) => setEditSubcat(v)}>
+                            <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Sub..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Nenhuma</SelectItem>
+                              {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([v, l]) => (<SelectItem key={v} value={v}>{l}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Select value={editAuthor} onValueChange={(v) => setEditAuthor(v as SpouseProfile)}>
                           <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
