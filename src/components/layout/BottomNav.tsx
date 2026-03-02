@@ -8,7 +8,7 @@ const primaryNav = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: PieChart, label: "Gastos", path: "/expenses" },
   null, // FAB slot
-  { icon: CalendarClock, label: "Lançam.", path: "/planned" },
+  { icon: CalendarClock, label: "Orçam.", path: "/planned" },
   { icon: Menu, label: "Mais", path: "__more__" },
 ];
 

@@ -101,7 +101,7 @@ const PlannedEntriesPage = () => {
     <AppLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Lançamentos</h1>
+          <h1 className="text-xl font-bold">Orçamento</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {pending.length} pendente{pending.length !== 1 ? "s" : ""} ·{" "}
             <span className="font-mono text-destructive">
@@ -115,6 +115,77 @@ const PlannedEntriesPage = () => {
         </Button>
       </div>
 
+      {/* Budget Summary Panel */}
+      {(() => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const monthEntries = entries.filter((e) => {
+          const d = new Date(e.dueDate);
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+
+        const incomeByCategory: Record<string, number> = {};
+        const expenseByCategory: Record<string, number> = {};
+
+        for (const e of monthEntries) {
+          const label = categoryLabels[e.category] ?? e.category;
+          if (e.amount > 0) {
+            incomeByCategory[label] = (incomeByCategory[label] || 0) + Math.abs(e.amount);
+          } else {
+            expenseByCategory[label] = (expenseByCategory[label] || 0) + Math.abs(e.amount);
+          }
+        }
+
+        const totalExpenses = Object.values(expenseByCategory).reduce((a, b) => a + b, 0);
+        const totalIncome = Object.values(incomeByCategory).reduce((a, b) => a + b, 0);
+        const monthName = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+        return (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-4 mb-4">
+            <h2 className="text-sm font-semibold mb-3">
+              Orçamento do Mês — <span className="capitalize">{monthName}</span>
+            </h2>
+
+            {Object.keys(incomeByCategory).length > 0 && (
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Receitas</p>
+                {Object.entries(incomeByCategory).sort(([,a],[,b]) => b - a).map(([cat, val]) => (
+                  <div key={cat} className="flex justify-between text-xs py-0.5">
+                    <span className="text-primary">{cat}</span>
+                    <span className="font-mono text-primary">R$ {val.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {Object.keys(expenseByCategory).length > 0 && (
+              <div className="mb-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Saídas Orçadas</p>
+                {Object.entries(expenseByCategory).sort(([,a],[,b]) => b - a).map(([cat, val]) => (
+                  <div key={cat} className={cn("flex justify-between text-xs py-0.5", cat === (categoryLabels["investimentos"] ?? "Investimentos") && "text-primary font-semibold")}>
+                    <span>{cat}</span>
+                    <span className="font-mono">R$ {val.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-border pt-2 mt-2 flex justify-between text-sm font-semibold">
+              <span>Total Saídas</span>
+              <span className="font-mono text-destructive">R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+            </div>
+            {totalIncome > 0 && (
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>Total Receitas</span>
+                <span className="font-mono">R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
+              </div>
+            )}
+          </motion.div>
+        );
+      })()}
+
+
       {/* Add form */}
       <AnimatePresence>
         {showForm && (
@@ -124,7 +195,7 @@ const PlannedEntriesPage = () => {
             exit={{ opacity: 0, y: -10, height: 0 }}
             className="glass-card rounded-2xl p-4 mb-4 overflow-hidden"
           >
-            <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Lançamento</h2>
+            <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Orçamento</h2>
 
             {/* Débito / Crédito toggle */}
             <div className="flex items-center gap-1 mb-3 rounded-xl bg-secondary p-0.5 w-fit">
