@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
 import {
   RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
+  INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory,
 } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -43,6 +44,7 @@ const emptyForm = {
   name: "",
   amount: "",
   category: "fixas" as TransactionCategory,
+  subcategory: "" as string,
   dueDate: new Date().toISOString().split("T")[0],
   recurrence: "mensal" as RecurrenceType,
   spouseProfile: "familia" as SpouseProfile,
@@ -75,6 +77,7 @@ const PlannedEntriesPage = () => {
       name: form.name,
       amount: signedAmount,
       category: form.category,
+      subcategory: form.category === 'investimentos' && form.subcategory ? form.subcategory as InvestmentSubcategory : undefined,
       dueDate: toISODate(form.dueDate),
       recurrence: form.recurrence,
       spouseProfile: form.spouseProfile,
@@ -172,7 +175,7 @@ const PlannedEntriesPage = () => {
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 className="h-9 text-sm"
               />
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as TransactionCategory })}>
+              <Select value={form.category} onValueChange={(v) => { setForm({ ...form, category: v as TransactionCategory, subcategory: v !== 'investimentos' ? '' : form.subcategory }); }}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(categoryLabels).map(([v, l]) => (
@@ -180,6 +183,17 @@ const PlannedEntriesPage = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {form.category === 'investimentos' && (
+                <Select value={form.subcategory} onValueChange={(v) => setForm({ ...form, subcategory: v })}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Subcategoria..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhuma</SelectItem>
+                    {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([v, l]) => (
+                      <SelectItem key={v} value={v}>{l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={form.recurrence} onValueChange={(v) => setForm({ ...form, recurrence: v as RecurrenceType })}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>

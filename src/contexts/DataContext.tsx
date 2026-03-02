@@ -37,7 +37,7 @@ interface FinanceContextType {
   profileFilter: ProfileFilter;
   setProfileFilter: (p: ProfileFilter) => void;
   addTransactions: (txs: Transaction[]) => Promise<void>;
-  updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>) => Promise<void>;
+  updateTransaction: (id: string, patch: Partial<Pick<Transaction, "category" | "subcategory" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteTransactions: (ids: string[]) => Promise<void>;
   updateConfig: (partial: Partial<FinancialConfig>) => Promise<void>;
@@ -278,7 +278,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
 
   const handleUpdateTransaction = useCallback(async (
     id: string,
-    patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
+    patch: Partial<Pick<Transaction, "category" | "subcategory" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
   ) => {
     const updated = await api.updateTransaction(id, patch);
     setData((prev) => ({

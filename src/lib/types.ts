@@ -57,11 +57,28 @@ export const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
   anual: "Anual",
 };
 
+// ── Investment subcategories ──
+export type InvestmentSubcategory = 'emergencia' | 'renda_fixa' | 'previdencia' | 'fiis' | 'acoes' | 'cripto';
+
+export const INVESTMENT_SUBCATEGORY_LABELS: Record<InvestmentSubcategory, string> = {
+  emergencia: "Emergência",
+  renda_fixa: "Renda Fixa",
+  previdencia: "Previdência",
+  fiis: "FIIs",
+  acoes: "Ações",
+  cripto: "Cripto",
+};
+
+export const INVESTMENT_SUBCATEGORY_ORDER: InvestmentSubcategory[] = [
+  'emergencia', 'renda_fixa', 'previdencia', 'fiis', 'acoes', 'cripto',
+];
+
 export interface PlannedEntry {
   readonly id: string;
   readonly name: string;
   readonly amount: number; // negative = expense, positive = income
   readonly category: TransactionCategory;
+  readonly subcategory?: InvestmentSubcategory;
   readonly dueDate: ISODateString; // next occurrence date
   readonly recurrence: RecurrenceType;
   readonly spouseProfile: SpouseProfile;
@@ -122,6 +139,7 @@ export interface Transaction {
   readonly amount: BRLAmount; // positive = credit, negative = debit
   readonly source: TransactionSource;
   readonly category: TransactionCategory;
+  readonly subcategory?: InvestmentSubcategory;
   readonly milesGenerated: MilesCount;
   readonly isInefficient: boolean;
   readonly isInternational: boolean;

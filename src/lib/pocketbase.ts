@@ -16,6 +16,7 @@ export function mapTransaction(r: Record<string, any>): Transaction {
     amount: toBRL(r.amount || 0),
     source: (r.source || "unknown") as TransactionSource,
     category: (r.category || "outros") as TransactionCategory,
+    subcategory: r.subcategory || undefined,
     milesGenerated: toMiles(r.miles_generated || 0),
     isInefficient: !!r.is_inefficient,
     isInternational: !!r.is_international,
@@ -35,6 +36,7 @@ export function mapPlannedEntry(r: Record<string, any>): PlannedEntry {
     name: r.name || "",
     amount: r.amount || 0,
     category: (r.category || "outros") as TransactionCategory,
+    subcategory: r.subcategory || undefined,
     dueDate: toISODate(r.due_date?.split("T")[0] || r.due_date),
     recurrence: (r.recurrence || "unico") as RecurrenceType,
     spouseProfile: (r.spouse_profile || "familia") as SpouseProfile,
@@ -111,6 +113,7 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
     amount: tx.amount,
     source: tx.source,
     category: tx.category,
+    subcategory: tx.subcategory ?? null,
     miles_generated: tx.milesGenerated,
     is_inefficient: tx.isInefficient,
     is_international: tx.isInternational,
@@ -136,10 +139,11 @@ export async function createTransactions(txs: Transaction[], userId: string): Pr
 
 export async function updateTransaction(
   id: string,
-  patch: Partial<Pick<Transaction, "category" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
+  patch: Partial<Pick<Transaction, "category" | "subcategory" | "amount" | "spouseProfile" | "description" | "treatedName" | "cardNetwork" | "isConfirmed">>
 ): Promise<Transaction> {
   const data: Record<string, unknown> = {};
   if (patch.category !== undefined) data.category = patch.category;
+  if (patch.subcategory !== undefined) data.subcategory = patch.subcategory;
   if (patch.amount !== undefined) data.amount = patch.amount;
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;
   if (patch.description !== undefined) data.description = patch.description;
@@ -244,6 +248,7 @@ export async function createPlannedEntry(entry: PlannedEntry, userId: string): P
     name: entry.name,
     amount: entry.amount,
     category: entry.category,
+    subcategory: entry.subcategory ?? null,
     due_date: entry.dueDate,
     recurrence: entry.recurrence,
     spouse_profile: entry.spouseProfile,
@@ -260,6 +265,7 @@ export async function updatePlannedEntryRemote(id: string, patch: Partial<Planne
   if (patch.name !== undefined) data.name = patch.name;
   if (patch.amount !== undefined) data.amount = patch.amount;
   if (patch.category !== undefined) data.category = patch.category;
+  if (patch.subcategory !== undefined) data.subcategory = patch.subcategory;
   if (patch.dueDate !== undefined) data.due_date = patch.dueDate;
   if (patch.recurrence !== undefined) data.recurrence = patch.recurrence;
   if (patch.spouseProfile !== undefined) data.spouse_profile = patch.spouseProfile;

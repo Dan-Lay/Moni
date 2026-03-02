@@ -8,6 +8,7 @@ export interface CategorizationRule {
   id: string;
   keyword: string;
   category: TransactionCategory;
+  subcategory?: string;
   profile: SpouseProfile;
   userId: string;
   familyId: string | null;
@@ -33,6 +34,7 @@ export async function fetchCategorizationRules(
       id: r.id,
       keyword: (r.keyword || "").toLowerCase(),
       category: (r.category || "outros") as TransactionCategory,
+      subcategory: r.subcategory || undefined,
       profile: (r.profile || "familia") as SpouseProfile,
       userId: r.user_id || "",
       familyId: r.family_id || null,
@@ -47,7 +49,8 @@ export async function createCategorizationRule(
   category: TransactionCategory,
   profile: SpouseProfile,
   userId: string,
-  familyId?: string | null
+  familyId?: string | null,
+  subcategory?: string
 ): Promise<CategorizationRule> {
   const row: Record<string, unknown> = {
     keyword: keyword.toLowerCase(),
@@ -56,6 +59,7 @@ export async function createCategorizationRule(
     user_id: userId,
   };
   if (familyId) row.family_id = familyId;
+  if (subcategory) row.subcategory = subcategory;
 
   const { data, error } = await supabase
     .from("categorization_rules")
@@ -67,6 +71,7 @@ export async function createCategorizationRule(
     id: data.id,
     keyword: data.keyword,
     category: data.category as TransactionCategory,
+    subcategory: data.subcategory || undefined,
     profile: data.profile as SpouseProfile,
     userId: data.user_id,
     familyId: data.family_id || null,
@@ -82,7 +87,8 @@ export async function upsertCategorizationRule(
   category: TransactionCategory,
   profile: SpouseProfile,
   userId: string,
-  familyId?: string | null
+  familyId?: string | null,
+  subcategory?: string
 ): Promise<void> {
   const kw = keyword.toLowerCase().trim();
   if (!kw) return;
@@ -104,16 +110,18 @@ export async function upsertCategorizationRule(
 
     if (existing) {
       // Update existing rule
+      const updateData: Record<string, unknown> = { category, profile };
+      if (subcategory !== undefined) updateData.subcategory = subcategory || null;
       const { data, error } = await supabase
         .from("categorization_rules")
-        .update({ category, profile })
+        .update(updateData)
         .eq("id", existing.id)
         .select()
         .single();
       console.log("[Moni] Regra atualizada:", data, error);
     } else {
       // Create new
-      const newRule = await createCategorizationRule(kw, category, profile, userId, familyId);
+      const newRule = await createCategorizationRule(kw, category, profile, userId, familyId, subcategory);
       console.log("[Moni] Regra criada:", newRule);
     }
   } catch (err) {

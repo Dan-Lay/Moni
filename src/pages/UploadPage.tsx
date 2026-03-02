@@ -9,7 +9,7 @@ import { useCallback, useState, useEffect } from "react";
 import { parseOFX } from "@/lib/parsers";
 import { useFinance } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Transaction, TransactionCategory, CATEGORY_LABELS, formatMiles, formatBRL, SpouseProfile, ReconciliationStatus, RECONCILIATION_LABELS } from "@/lib/types";
+import { Transaction, TransactionCategory, CATEGORY_LABELS, formatMiles, formatBRL, SpouseProfile, ReconciliationStatus, RECONCILIATION_LABELS, INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory } from "@/lib/types";
 import { tryReconcile } from "@/lib/storage";
 import { buildTransaction, categorizeTransaction } from "@/lib/categorizer";
 import { reconcileBatch, ReconciliationResult } from "@/lib/reconciliation";
@@ -111,8 +111,8 @@ const UploadPage = () => {
   const [onlyCategorized, setOnlyCategorized] = useState(false);
 
   // ── Create Rule dialog ──
-  const [ruleDialog, setRuleDialog] = useState<{ open: boolean; rowIdx: number; keyword: string; category: TransactionCategory; profile: SpouseProfile }>({
-    open: false, rowIdx: -1, keyword: "", category: "outros", profile: "familia",
+  const [ruleDialog, setRuleDialog] = useState<{ open: boolean; rowIdx: number; keyword: string; category: TransactionCategory; profile: SpouseProfile; subcategory: string }>({
+    open: false, rowIdx: -1, keyword: "", category: "outros", profile: "familia", subcategory: "",
   });
 
   // Load saved mapping on mount
@@ -230,7 +230,7 @@ const UploadPage = () => {
         const ruleMatch = matchRule(tx.description, currentRules);
         if (ruleMatch) {
           rows.push({
-            tx: { ...tx, category: ruleMatch.category, spouseProfile: ruleMatch.profile },
+            tx: { ...tx, category: ruleMatch.category, spouseProfile: ruleMatch.profile, subcategory: (ruleMatch.subcategory as any) || undefined },
             ruleMatch,
             status: "auto",
             ignored: false,
@@ -331,7 +331,7 @@ const UploadPage = () => {
         });
         for (const r of changedRows) {
           const keyword = r.tx.description;
-          upsertCategorizationRule(keyword, r.tx.category, r.tx.spouseProfile, user.id, user.familyId);
+          upsertCategorizationRule(keyword, r.tx.category, r.tx.spouseProfile, user.id, user.familyId, (r.tx as any).subcategory);
         }
       }
 
@@ -349,7 +349,6 @@ const UploadPage = () => {
   // ── Create rule dialog actions ──
   const openCreateRule = (rowIdx: number) => {
     const row = reviewRows[rowIdx];
-    // Extract a keyword suggestion from the description
     const words = row.tx.establishment || row.tx.description;
     setRuleDialog({
       open: true,
@@ -357,6 +356,7 @@ const UploadPage = () => {
       keyword: words.toLowerCase(),
       category: row.tx.category,
       profile: row.tx.spouseProfile,
+      subcategory: (row.tx as any).subcategory || "",
     });
   };
 
@@ -372,7 +372,8 @@ const UploadPage = () => {
         ruleDialog.category,
         ruleDialog.profile,
         user.id,
-        user.familyId
+        user.familyId,
+        ruleDialog.subcategory || undefined
       );
       const updatedRules = [...rules, newRule];
       setRules(updatedRules);
@@ -385,7 +386,7 @@ const UploadPage = () => {
             if (match) {
               return {
                 ...row,
-                tx: { ...row.tx, category: match.category, spouseProfile: match.profile },
+                tx: { ...row.tx, category: match.category, spouseProfile: match.profile, subcategory: (match.subcategory as any) || undefined },
                 ruleMatch: match,
                 status: "auto" as const,
               };
@@ -404,7 +405,15 @@ const UploadPage = () => {
   const handleCategoryChange = (rowIdx: number, category: TransactionCategory) => {
     setReviewRows((prev) =>
       prev.map((r, i) =>
-        i === rowIdx ? { ...r, tx: { ...r.tx, category }, status: "auto" as const } : r
+        i === rowIdx ? { ...r, tx: { ...r.tx, category, subcategory: category !== 'investimentos' ? undefined : r.tx.subcategory }, status: "auto" as const } : r
+      )
+    );
+  };
+
+  const handleSubcategoryChange = (rowIdx: number, subcategory: string) => {
+    setReviewRows((prev) =>
+      prev.map((r, i) =>
+        i === rowIdx ? { ...r, tx: { ...r.tx, subcategory: (subcategory || undefined) as any } } : r
       )
     );
   };
@@ -593,7 +602,7 @@ const UploadPage = () => {
           )}
 
           {/* Transaction list */}
-          <div className="glass-card rounded-2xl p-4">
+          <div className="glass-card rounded-2xl p-4 overflow-hidden">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Transações ({reviewRows.length}){ignoredCount > 0 && <span className="text-muted-foreground font-normal"> · {ignoredCount} ignorada(s)</span>}</h3>
               <div className="flex flex-wrap items-center gap-2">
@@ -669,6 +678,21 @@ const UploadPage = () => {
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                     </div>
+                    {row.tx.category === 'investimentos' && !row.ignored && reconcAction !== "skip_duplicate" && (
+                      <div className="relative w-24 shrink-0">
+                        <select
+                          value={(row.tx as any).subcategory || ""}
+                          onChange={(e) => handleSubcategoryChange(idx, e.target.value)}
+                          className="w-full appearance-none rounded-md border border-border bg-popover px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="">Sub...</option>
+                          {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([k, v]) => (
+                            <option key={k} value={k}>{v}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                    )}
                     {row.status === "pending" && !row.ignored && reconcAction !== "skip_duplicate" ? (
                       <button onClick={() => openCreateRule(idx)} title="Criar regra"
                         className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
@@ -684,7 +708,7 @@ const UploadPage = () => {
               };
 
               return (
-                <div className="flex-1 w-full overflow-y-auto h-[400px] min-h-[300px] border rounded-md p-2">
+                <div className="w-full max-h-[55vh] md:max-h-[60vh] overflow-y-auto border rounded-md p-2 block relative">
                   <div className="space-y-1 pr-1">
                     {mainRows.map(renderRow)}
                     {reconciledRows.length > 0 && (
@@ -748,6 +772,24 @@ const UploadPage = () => {
                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
             </div>
+            {ruleDialog.category === 'investimentos' && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Subcategoria</label>
+                <div className="relative">
+                  <select
+                    value={ruleDialog.subcategory}
+                    onChange={(e) => setRuleDialog((d) => ({ ...d, subcategory: e.target.value }))}
+                    className="w-full appearance-none rounded-lg border border-border bg-popover px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Sem subcategoria</option>
+                    {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Perfil</label>
               <div className="relative">
