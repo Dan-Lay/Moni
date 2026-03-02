@@ -1,554 +1,451 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useFinance, useCategoryLabels } from "@/contexts/DataContext";
 import {
-  RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
-  INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory,
+  TransactionCategory, CATEGORY_LABELS,
+  INVESTMENT_SUBCATEGORY_LABELS, INVESTMENT_SUBCATEGORY_ORDER, InvestmentSubcategory,
 } from "@/lib/types";
-import { addDays, addMonths, addYears, startOfMonth, isBefore } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, CheckCircle2, Circle, CalendarClock, RefreshCw, PencilLine, Check, X,
+  ChevronLeft, ChevronRight, ChevronDown, Plus, Check, X, PencilLine, Trash2,
+  ShoppingCart, Heart, Stethoscope, Bus, Gamepad2, Home, TrendingUp, HelpCircle,
+  Utensils, CreditCard, PiggyBank, Landmark, Shield, Building2, BarChart3, Bitcoin, GraduationCap,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
-const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = Object.entries(RECURRENCE_LABELS).map(
-  ([v, l]) => ({ value: v as RecurrenceType, label: l })
-);
+// ── Category icons & colors ──
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  fixas: <Home className="h-4 w-4" />,
+  saude: <Stethoscope className="h-4 w-4" />,
+  alimentacao: <Utensils className="h-4 w-4" />,
+  supermercado: <ShoppingCart className="h-4 w-4" />,
+  lazer: <Gamepad2 className="h-4 w-4" />,
+  transporte: <Bus className="h-4 w-4" />,
+  investimentos: <TrendingUp className="h-4 w-4" />,
+  compras: <CreditCard className="h-4 w-4" />,
+  ajuda_mae: <Heart className="h-4 w-4" />,
+  pagamento_fatura: <CreditCard className="h-4 w-4" />,
+  outros: <HelpCircle className="h-4 w-4" />,
+};
 
-// ── Currency input mask helper ──
+const CATEGORY_BG_COLORS: Record<string, string> = {
+  fixas: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+  saude: "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400",
+  alimentacao: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
+  supermercado: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400",
+  lazer: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
+  transporte: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
+  investimentos: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
+  compras: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400",
+  ajuda_mae: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400",
+  pagamento_fatura: "bg-slate-100 text-slate-600 dark:bg-slate-900/40 dark:text-slate-400",
+  outros: "bg-gray-100 text-gray-600 dark:bg-gray-900/40 dark:text-gray-400",
+};
+
+const SUBCAT_ICONS: Record<InvestmentSubcategory, React.ReactNode> = {
+  emergencia: <PiggyBank className="h-3.5 w-3.5" />,
+  renda_fixa: <Landmark className="h-3.5 w-3.5" />,
+  previdencia: <Shield className="h-3.5 w-3.5" />,
+  fiis: <Building2 className="h-3.5 w-3.5" />,
+  acoes: <BarChart3 className="h-3.5 w-3.5" />,
+  cripto: <Bitcoin className="h-3.5 w-3.5" />,
+};
+
+// ── Currency helpers ──
 function formatCurrencyInput(raw: string): string {
-  // Strip everything except digits
   const digits = raw.replace(/\D/g, "");
   if (!digits) return "";
   const cents = parseInt(digits, 10);
-  const formatted = (cents / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return formatted;
+  return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function parseCurrencyInput(masked: string): number {
   if (!masked) return 0;
-  const cleaned = masked.replace(/\./g, "").replace(",", ".");
-  return parseFloat(cleaned) || 0;
+  return parseFloat(masked.replace(/\./g, "").replace(",", ".")) || 0;
+}
+function fmtBRL(n: number) {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-const emptyForm = {
-  name: "",
-  amount: "",
-  category: "fixas" as TransactionCategory,
-  subcategory: "" as string,
-  dueDate: new Date().toISOString().split("T")[0],
-  recurrence: "mensal" as RecurrenceType,
-  spouseProfile: "familia" as SpouseProfile,
-  type: "debito" as "debito" | "credito",
-};
+// ── Status badge logic ──
+function getStatusBadge(pct: number) {
+  if (pct > 100) return { label: "Acima", className: "bg-destructive/15 text-destructive border-destructive/30" };
+  if (pct >= 80) return { label: "Atenção", className: "bg-warning/15 text-warning border-warning/30" };
+  return { label: "OK", className: "bg-primary/15 text-primary border-primary/30" };
+}
 
 const PlannedEntriesPage = () => {
-  const { data, addPlannedEntry, addPlannedEntries, updatePlannedEntry, deletePlannedEntry } = useFinance();
+  const { data, finance, upsertCategoryBudget, deleteCategoryBudget, loadBudgetsForMonth } = useFinance();
   const categoryLabels = useCategoryLabels();
-  const entries = [...(data.plannedEntries ?? [])].sort(
-    (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-  );
 
-  const [form, setForm] = useState(emptyForm);
-  const [showForm, setShowForm] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // Month selector
+  const [monthOffset, setMonthOffset] = useState(0);
+  const selectedDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + monthOffset);
+    return d;
+  }, [monthOffset]);
+  const selectedMonth = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}`;
+  const monthLabel = selectedDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-  const pending = entries.filter((e) => !e.conciliado);
-  const conciliated = entries.filter((e) => e.conciliado);
+  // Load budgets when month changes
+  useEffect(() => {
+    loadBudgetsForMonth(selectedMonth);
+  }, [selectedMonth, loadBudgetsForMonth]);
 
-  const totalPending = pending
-    .filter((e) => e.amount < 0)
-    .reduce((a, e) => a + Math.abs(e.amount), 0);
-
-  async function handleAdd() {
-    const amt = parseCurrencyInput(form.amount);
-    if (!form.name || amt === 0) return;
-    const signedAmount = form.type === "debito" ? -Math.abs(amt) : Math.abs(amt);
-
-    const baseEntry: Omit<PlannedEntry, "id"> = {
-      name: form.name,
-      amount: signedAmount,
-      category: form.category,
-      subcategory: form.category === 'investimentos' && form.subcategory ? form.subcategory as InvestmentSubcategory : undefined,
-      dueDate: toISODate(form.dueDate),
-      recurrence: form.recurrence,
-      spouseProfile: form.spouseProfile,
-      conciliado: false,
-      createdAt: toISODate(new Date().toISOString()),
-    };
-
-    setIsSaving(true);
-    try {
-      if (form.recurrence === "unico") {
-        await addPlannedEntry({ ...baseEntry, id: `pe_${Date.now()}` });
-      } else {
-        // Generate recurring entries up to 12 months from now
-        const groupId = crypto.randomUUID();
-        const limit = addMonths(startOfMonth(new Date()), 13);
-        const allEntries: PlannedEntry[] = [];
-        let currentDate = new Date(form.dueDate);
-        let idx = 0;
-
-        while (isBefore(currentDate, limit)) {
-          allEntries.push({
-            ...baseEntry,
-            id: `pe_${Date.now()}_${idx}`,
-            dueDate: toISODate(currentDate.toISOString().split("T")[0]),
-            groupId,
-          });
-          idx++;
-          switch (form.recurrence) {
-            case "semanal":   currentDate = addDays(currentDate, 7); break;
-            case "quinzenal": currentDate = addDays(currentDate, 14); break;
-            case "mensal":    currentDate = addMonths(new Date(form.dueDate), idx); break;
-            case "anual":     currentDate = addYears(new Date(form.dueDate), idx); break;
-          }
-        }
-        await addPlannedEntries(allEntries);
+  // Compute "Realizado" per category from transactions
+  const realizado = useMemo(() => {
+    const result: Record<string, number> = {};
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    for (const t of data.transactions) {
+      const d = new Date(t.date);
+      if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+      if (t.amount >= 0) continue; // only expenses
+      if (t.isIgnored) continue;
+      // For investments with subcategory, track both parent and sub
+      if (t.category === "investimentos" && t.subcategory) {
+        const subKey = `investimentos:${t.subcategory}`;
+        result[subKey] = (result[subKey] || 0) + Math.abs(t.amount);
       }
-      setForm(emptyForm);
-      setShowForm(false);
-    } finally {
-      setIsSaving(false);
+      result[t.category] = (result[t.category] || 0) + Math.abs(t.amount);
     }
-  }
+    return result;
+  }, [data.transactions, selectedDate]);
 
-  async function handleToggleConciliated(id: string, current: boolean) {
-    await updatePlannedEntry(id, { conciliado: !current });
-  }
+  // Build budget map from categoryBudgets
+  const budgetMap = useMemo(() => {
+    const map: Record<string, { id: string; amount: number }> = {};
+    for (const b of data.categoryBudgets) {
+      if (b.month === selectedMonth) {
+        map[b.category] = { id: b.id, amount: b.amount };
+      }
+    }
+    return map;
+  }, [data.categoryBudgets, selectedMonth]);
 
-  async function handleDelete(id: string) {
-    await deletePlannedEntry(id);
-  }
+  // All categories that have a budget or expenses
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    // Add all built-in categories from labels
+    for (const key of Object.keys(categoryLabels)) {
+      if (key === "pagamento_fatura") continue; // skip non-budget category
+      cats.add(key);
+    }
+    // Add any that have expenses
+    for (const key of Object.keys(realizado)) {
+      if (!key.includes(":")) cats.add(key);
+    }
+    return Array.from(cats);
+  }, [categoryLabels, realizado]);
+
+  // For investimentos: sum subcategory budgets as parent budget
+  const investimentosOrcado = useMemo(() => {
+    return INVESTMENT_SUBCATEGORY_ORDER.reduce((sum, sub) => {
+      const key = `investimentos:${sub}`;
+      return sum + (budgetMap[key]?.amount || 0);
+    }, 0);
+  }, [budgetMap]);
+
+  // Totals
+  const totalOrcado = useMemo(() => {
+    return allCategories.reduce((sum, cat) => {
+      if (cat === "investimentos") return sum + investimentosOrcado;
+      return sum + (budgetMap[cat]?.amount || 0);
+    }, 0);
+  }, [allCategories, budgetMap, investimentosOrcado]);
+
+  const totalRealizado = useMemo(() => {
+    return allCategories.reduce((sum, cat) => sum + (realizado[cat] || 0), 0);
+  }, [allCategories, realizado]);
+
+  const economia = totalOrcado - totalRealizado;
+  const totalPct = totalOrcado > 0 ? (totalRealizado / totalOrcado) * 100 : 0;
+
+  // Editing state
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
+
+  // Accordion for investimentos
+  const [investOpen, setInvestOpen] = useState(false);
+
+  // Add category dropdown
+  const [showAddCat, setShowAddCat] = useState(false);
+
+  const startEdit = useCallback((key: string, currentAmount: number) => {
+    setEditingKey(key);
+    setEditValue(currentAmount > 0
+      ? currentAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "");
+  }, []);
+
+  const confirmEdit = useCallback(async (key: string) => {
+    const amount = parseCurrencyInput(editValue);
+    setSavingKey(key);
+    try {
+      await upsertCategoryBudget(key, selectedMonth, amount);
+      setEditingKey(null);
+      setSavedKey(key);
+      setTimeout(() => setSavedKey(null), 1500);
+    } finally {
+      setSavingKey(null);
+    }
+  }, [editValue, selectedMonth, upsertCategoryBudget]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingKey(null);
+  }, []);
+
+  // Render a single category row
+  const renderCategoryRow = (cat: string, label: string, orcado: number, real: number, isSubcategory = false) => {
+    const pct = orcado > 0 ? (real / orcado) * 100 : (real > 0 ? 100 : 0);
+    const status = getStatusBadge(pct);
+    const isEditing = editingKey === cat;
+    const isSaving = savingKey === cat;
+    const justSaved = savedKey === cat;
+
+    return (
+      <motion.div
+        key={cat}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          "glass-card rounded-2xl px-4 py-3 transition-all",
+          isSubcategory && "ml-6 rounded-xl",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          {/* Icon circle */}
+          <div className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+            isSubcategory ? "h-7 w-7" : "",
+            CATEGORY_BG_COLORS[isSubcategory ? "investimentos" : cat] || CATEGORY_BG_COLORS.outros,
+          )}>
+            {isSubcategory
+              ? SUBCAT_ICONS[cat.split(":")[1] as InvestmentSubcategory] || <HelpCircle className="h-3.5 w-3.5" />
+              : CATEGORY_ICONS[cat] || <HelpCircle className="h-4 w-4" />}
+          </div>
+
+          {/* Center content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className={cn("text-sm font-medium", isSubcategory && "text-xs")}>{label}</span>
+                {cat === "investimentos" && !isSubcategory && (
+                  <button
+                    onClick={() => setInvestOpen((p) => !p)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", investOpen && "rotate-180")} />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Status badge */}
+                {orcado > 0 && (
+                  <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 border", status.className)}>
+                    {status.label}
+                  </Badge>
+                )}
+                {/* Values */}
+                <span className={cn("font-mono text-xs", isSubcategory && "text-[11px]")}>
+                  <span className="text-foreground font-semibold">R$ {fmtBRL(real)}</span>
+                  <span className="text-muted-foreground"> / R$ {fmtBRL(orcado)}</span>
+                  {orcado > 0 && (
+                    <span className={cn("ml-1", pct > 100 ? "text-destructive" : "text-muted-foreground")}>
+                      ({Math.round(pct)}%)
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(pct, 100)}%` }}
+                transition={{ duration: 0.6 }}
+                className={cn(
+                  "h-full rounded-full",
+                  pct > 100 ? "bg-destructive" : pct >= 80 ? "bg-warning" : "bg-primary"
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Edit actions — only for non-parent investimentos */}
+          {!(cat === "investimentos" && !isSubcategory) && (
+            <div className="shrink-0 flex items-center gap-1">
+              {isEditing ? (
+                <>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">R$</span>
+                    <Input
+                      className="h-7 w-24 pl-7 text-xs font-mono"
+                      value={editValue}
+                      inputMode="numeric"
+                      autoFocus
+                      onChange={(e) => setEditValue(formatCurrencyInput(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") confirmEdit(cat);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => confirmEdit(cat)}
+                    disabled={isSaving}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+                      isSaving ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary/20 text-primary hover:bg-primary/30"
+                    )}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={cancelEdit} className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {justSaved ? (
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex h-7 w-7 items-center justify-center text-primary">
+                      <Check className="h-4 w-4" />
+                    </motion.div>
+                  ) : (
+                    <button
+                      onClick={() => startEdit(cat, orcado)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Editar meta"
+                    >
+                      <PencilLine className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   return (
     <AppLayout>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Orçamento</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {pending.length} pendente{pending.length !== 1 ? "s" : ""} ·{" "}
-            <span className="font-mono text-destructive">
-              R$ {totalPending.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </span>
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setShowForm((p) => !p)} className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Novo
-        </Button>
+      {/* Month selector */}
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={() => setMonthOffset((p) => p - 1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h1 className="text-lg font-bold capitalize">{monthLabel}</h1>
+        <button onClick={() => setMonthOffset((p) => p + 1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Budget Summary Panel */}
-      {(() => {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        const monthEntries = entries.filter((e) => {
-          const d = new Date(e.dueDate);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        });
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="glass-card rounded-2xl p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Planejado</p>
+          <p className="font-mono text-lg font-bold">R$ {fmtBRL(totalOrcado)}</p>
+          <p className="text-[10px] text-muted-foreground">{allCategories.filter(c => (budgetMap[c]?.amount || 0) > 0 || (c === "investimentos" && investimentosOrcado > 0)).length} categorias</p>
+        </div>
+        <div className="glass-card rounded-2xl p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Realizado</p>
+          <p className="font-mono text-lg font-bold">R$ {fmtBRL(totalRealizado)}</p>
+          <p className="text-[10px] text-muted-foreground">{totalOrcado > 0 ? `${Math.round(totalPct)}% do planejado` : "—"}</p>
+        </div>
+        <div className="glass-card rounded-2xl p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Economia</p>
+          <p className={cn("font-mono text-lg font-bold", economia >= 0 ? "text-primary" : "text-destructive")}>
+            R$ {fmtBRL(Math.abs(economia))}
+          </p>
+          <p className="text-[10px] text-muted-foreground">{economia >= 0 ? "abaixo" : "acima"}</p>
+        </div>
+      </div>
 
-        const incomeByCategory: Record<string, number> = {};
-        const expenseByCategory: Record<string, number> = {};
-
-        for (const e of monthEntries) {
-          const label = categoryLabels[e.category] ?? e.category;
-          if (e.amount > 0) {
-            incomeByCategory[label] = (incomeByCategory[label] || 0) + Math.abs(e.amount);
-          } else {
-            expenseByCategory[label] = (expenseByCategory[label] || 0) + Math.abs(e.amount);
-          }
-        }
-
-        const totalExpenses = Object.values(expenseByCategory).reduce((a, b) => a + b, 0);
-        const totalIncome = Object.values(incomeByCategory).reduce((a, b) => a + b, 0);
-        const monthName = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-
-        return (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-4 mb-4">
-            <h2 className="text-sm font-semibold mb-3">
-              Orçamento do Mês — <span className="capitalize">{monthName}</span>
-            </h2>
-
-            {Object.keys(incomeByCategory).length > 0 && (
-              <div className="mb-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Receitas</p>
-                {Object.entries(incomeByCategory).sort(([,a],[,b]) => b - a).map(([cat, val]) => (
-                  <div key={cat} className="flex justify-between text-xs py-0.5">
-                    <span className="text-primary">{cat}</span>
-                    <span className="font-mono text-primary">R$ {val.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {Object.keys(expenseByCategory).length > 0 && (
-              <div className="mb-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Saídas Orçadas</p>
-                {Object.entries(expenseByCategory).sort(([,a],[,b]) => b - a).map(([cat, val]) => (
-                  <div key={cat} className={cn("flex justify-between text-xs py-0.5", cat === (categoryLabels["investimentos"] ?? "Investimentos") && "text-primary font-semibold")}>
-                    <span>{cat}</span>
-                    <span className="font-mono">R$ {val.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="border-t border-border pt-2 mt-2 flex justify-between text-sm font-semibold">
-              <span>Total Saídas</span>
-              <span className="font-mono text-destructive">R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-            </div>
-            {totalIncome > 0 && (
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Total Receitas</span>
-                <span className="font-mono">R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span>
-              </div>
-            )}
-          </motion.div>
-        );
-      })()}
-
-
-      {/* Add form */}
-      <AnimatePresence>
-        {showForm && (
+      {/* Master progress bar */}
+      <div className="glass-card rounded-2xl p-4 mb-6">
+        <div className="flex justify-between text-xs text-muted-foreground mb-2">
+          <span>Consumo do Orçamento</span>
+          <span className="font-mono font-semibold">{totalOrcado > 0 ? `${Math.round(totalPct)}%` : "0%"}</span>
+        </div>
+        <div className="h-4 overflow-hidden rounded-full bg-secondary">
           <motion.div
-            initial={{ opacity: 0, y: -10, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
-            className="glass-card rounded-2xl p-4 mb-4 overflow-hidden"
-          >
-            <h2 className="text-sm font-semibold mb-3 text-muted-foreground">Novo Orçamento</h2>
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(totalPct, 100)}%` }}
+            transition={{ duration: 0.8 }}
+            className={cn(
+              "h-full rounded-full",
+              totalPct > 100 ? "bg-destructive" : totalPct >= 80 ? "bg-warning" : "bg-primary"
+            )}
+          />
+        </div>
+      </div>
 
-            {/* Débito / Crédito toggle */}
-            <div className="flex items-center gap-1 mb-3 rounded-xl bg-secondary p-0.5 w-fit">
-              {([
-                { value: "debito", label: "Débito", color: "text-destructive" },
-                { value: "credito", label: "Crédito", color: "text-primary" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setForm({ ...form, type: opt.value })}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                    form.type === opt.value
-                      ? opt.value === "debito"
-                        ? "bg-destructive text-destructive-foreground shadow-sm"
-                        : "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+      {/* Category list */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Orçamento por Categoria</h2>
+      </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <Input
-                placeholder="Nome Lançamento (desc. banco)"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="h-9 text-sm"
-              />
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                <Input
-                  placeholder="0,00"
-                  value={form.amount}
-                  onChange={(e) => {
-                    const masked = formatCurrencyInput(e.target.value);
-                    setForm({ ...form, amount: masked });
-                  }}
-                  inputMode="numeric"
-                  className="h-9 text-sm pl-8 font-mono"
-                />
+      <div className="space-y-3">
+        {allCategories
+          .sort((a, b) => {
+            const aVal = a === "investimentos" ? investimentosOrcado : (budgetMap[a]?.amount || 0);
+            const bVal = b === "investimentos" ? investimentosOrcado : (budgetMap[b]?.amount || 0);
+            return bVal - aVal;
+          })
+          .map((cat) => {
+            const label = categoryLabels[cat] || CATEGORY_LABELS[cat as TransactionCategory] || cat;
+            const isInvest = cat === "investimentos";
+            const orcado = isInvest ? investimentosOrcado : (budgetMap[cat]?.amount || 0);
+            const real = realizado[cat] || 0;
+
+            return (
+              <div key={cat}>
+                {renderCategoryRow(cat, label, orcado, real)}
+                {/* Investimentos accordion */}
+                {isInvest && (
+                  <AnimatePresence>
+                    {investOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-2 mt-2 overflow-hidden"
+                      >
+                        {INVESTMENT_SUBCATEGORY_ORDER.map((sub) => {
+                          const subKey = `investimentos:${sub}`;
+                          const subLabel = INVESTMENT_SUBCATEGORY_LABELS[sub];
+                          const subOrcado = budgetMap[subKey]?.amount || 0;
+                          const subReal = realizado[subKey] || 0;
+                          return renderCategoryRow(subKey, subLabel, subOrcado, subReal, true);
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
               </div>
-              <Input
-                type="date"
-                value={form.dueDate}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className="h-9 text-sm"
-              />
-              <Select value={form.category} onValueChange={(v) => { setForm({ ...form, category: v as TransactionCategory, subcategory: v !== 'investimentos' ? '' : form.subcategory }); }}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(categoryLabels).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.category === 'investimentos' && (
-                <Select value={form.subcategory || "none"} onValueChange={(v) => setForm({ ...form, subcategory: v === "none" ? "" : v })}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Subcategoria..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {Object.entries(INVESTMENT_SUBCATEGORY_LABELS).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Select value={form.recurrence} onValueChange={(v) => setForm({ ...form, recurrence: v as RecurrenceType })}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {RECURRENCE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={form.spouseProfile} onValueChange={(v) => setForm({ ...form, spouseProfile: v as SpouseProfile })}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="marido">Marido</SelectItem>
-                  <SelectItem value="esposa">Esposa</SelectItem>
-                  <SelectItem value="familia">Família</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} disabled={isSaving}>Cancelar</Button>
-              <Button size="sm" onClick={handleAdd} disabled={isSaving}>
-                {isSaving ? "Lançando orçamento..." : "Salvar"}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            );
+          })}
+      </div>
 
-      {/* Pending entries */}
-      {pending.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-            Pendentes
-          </h2>
-          <div className="space-y-2">
-            <AnimatePresence>
-              {pending.map((e) => (
-                <EntryRow key={e.id} entry={e} categoryLabels={categoryLabels} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
-
-      {/* Conciliated entries */}
-      {conciliated.length > 0 && (
-        <div>
-          <h2 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Conciliados
-          </h2>
-          <div className="space-y-2 opacity-60">
-            <AnimatePresence>
-              {conciliated.map((e) => (
-                <EntryRow key={e.id} entry={e} categoryLabels={categoryLabels} onToggle={handleToggleConciliated} onDelete={handleDelete} onUpdate={updatePlannedEntry} />
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
-
-      {entries.length === 0 && (
-        <div className="glass-card rounded-2xl p-8 text-center text-muted-foreground text-sm">
-          Nenhum lançamento ainda. Clique em <strong>Novo</strong> para adicionar contas fixas ou variáveis.
+      {/* Empty state */}
+      {allCategories.length === 0 && (
+        <div className="glass-card rounded-2xl p-8 text-center text-muted-foreground text-sm mt-4">
+          Nenhuma categoria configurada. Adicione metas para começar.
         </div>
       )}
     </AppLayout>
   );
 };
-
-interface EntryRowProps {
-  entry: PlannedEntry;
-  categoryLabels: Record<string, string>;
-  onToggle: (id: string, current: boolean) => void;
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, patch: Partial<PlannedEntry>) => Promise<void>;
-}
-
-function EntryRow({ entry, categoryLabels, onToggle, onDelete, onUpdate }: EntryRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(entry.name);
-  const [editAmount, setEditAmount] = useState(
-    Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  );
-  const [editCat, setEditCat] = useState(entry.category);
-  const [editDate, setEditDate] = useState(entry.dueDate);
-  const [editProfile, setEditProfile] = useState(entry.spouseProfile);
-  const [editType, setEditType] = useState<"debito" | "credito">(entry.amount >= 0 ? "credito" : "debito");
-
-  function startEdit() {
-    setEditName(entry.name);
-    setEditAmount(
-      Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    );
-    setEditCat(entry.category);
-    setEditDate(entry.dueDate);
-    setEditProfile(entry.spouseProfile);
-    setEditType(entry.amount >= 0 ? "credito" : "debito");
-    setIsEditing(true);
-  }
-
-  async function confirmEdit() {
-    const amt = parseCurrencyInput(editAmount);
-    const signedAmt = editType === "debito" ? -Math.abs(amt) : Math.abs(amt);
-    await onUpdate(entry.id, {
-      name: editName,
-      amount: isNaN(amt) || amt === 0 ? entry.amount : signedAmt,
-      category: editCat,
-      dueDate: toISODate(editDate),
-      spouseProfile: editProfile,
-    });
-    setIsEditing(false);
-  }
-
-  const isCredit = entry.amount >= 0;
-
-  if (isEditing) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-card rounded-xl px-4 py-3 ring-2 ring-primary/50"
-      >
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-7 text-xs flex-1" placeholder="Nome" />
-            <div className="flex gap-1 shrink-0">
-              <button onClick={confirmEdit} className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
-                <Check className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => setIsEditing(false)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Débito/Crédito mini toggle */}
-            <div className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5">
-              <button onClick={() => setEditType("debito")} className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all", editType === "debito" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>D</button>
-              <button onClick={() => setEditType("credito")} className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all", editType === "credito" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>C</button>
-            </div>
-            <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-              <Input
-                className="h-7 w-28 pl-7 text-xs font-mono"
-                value={editAmount}
-                inputMode="numeric"
-                onChange={(e) => setEditAmount(formatCurrencyInput(e.target.value))}
-              />
-            </div>
-            <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value as any)} className="h-7 w-36 text-xs" />
-            <Select value={editCat} onValueChange={(v) => setEditCat(v as TransactionCategory)}>
-              <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(categoryLabels).map(([v, l]) => (
-                  <SelectItem key={v} value={v}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={editProfile} onValueChange={(v) => setEditProfile(v as SpouseProfile)}>
-              <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="marido">Marido</SelectItem>
-                <SelectItem value="esposa">Esposa</SelectItem>
-                <SelectItem value="familia">Família</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      className="glass-card flex items-center gap-3 rounded-xl px-4 py-3"
-    >
-      <button
-        onClick={() => onToggle(entry.id, entry.conciliado)}
-        className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-        aria-label="Conciliar"
-      >
-        {entry.conciliado
-          ? <CheckCircle2 className="h-4.5 w-4.5 text-primary" />
-          : <Circle className="h-4.5 w-4.5" />}
-      </button>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className={cn("text-sm font-medium", entry.conciliado && "line-through text-muted-foreground")}>
-            {entry.name}
-          </p>
-          {entry.recurrence !== "unico" && (
-            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-              <RefreshCw className="h-2.5 w-2.5" /> {RECURRENCE_LABELS[entry.recurrence]}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-            <CalendarClock className="h-2.5 w-2.5" /> {entry.dueDate}
-          </span>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-            {categoryLabels[entry.category] ?? entry.category}
-          </Badge>
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] px-1.5 py-0 h-4",
-              entry.spouseProfile === "marido" && "border-blue-500/40 text-blue-400",
-              entry.spouseProfile === "esposa" && "border-pink-500/40 text-pink-400",
-            )}
-          >
-            {entry.spouseProfile === "marido" ? "Marido" : entry.spouseProfile === "esposa" ? "Esposa" : "Família"}
-          </Badge>
-          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", isCredit ? "border-primary/40 text-primary" : "border-destructive/40 text-destructive")}>
-            {isCredit ? "Crédito" : "Débito"}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="text-right shrink-0 flex items-center gap-2">
-        <div>
-          <p className={cn("font-mono text-sm font-semibold", isCredit ? "text-primary" : "text-destructive")}>
-            {isCredit ? "+" : "-"}{Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-          </p>
-          {entry.conciliado && entry.realAmount !== undefined && (
-            <p className="text-[10px] text-muted-foreground font-mono line-through">
-              Prev: {Math.abs(entry.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={startEdit}
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Editar"
-        >
-          <PencilLine className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={() => onDelete(entry.id)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-destructive transition-colors"
-          aria-label="Excluir"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </motion.div>
-  );
-}
 
 export default PlannedEntriesPage;

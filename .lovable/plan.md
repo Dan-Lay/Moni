@@ -1,92 +1,56 @@
 
 
-# Orcamento + Liberdade Financeira (com Protecoes Matematicas)
+# Orcamento: Metas por Categoria (Envelope Budgeting)
+
+## Status: ✅ Implementado
 
 ## Resumo
-Renomear "Lancamentos" para "Orcamento", adicionar painel de resumo orcamentario, e refatorar completamente o card Liberdade Financeira com nova logica de metas baseada no orcamento.
+A tela de Orçamento foi completamente refatorada para usar o modelo de **Metas Mensais por Categoria** (Envelope Budgeting), substituindo os lançamentos individuais.
 
 ---
 
-## 1. Renomear navegacao (3 ficheiros, 4 linhas)
+## Arquitetura
 
-- `DesktopSidebar.tsx` linha 9: `"Lançamentos"` -> `"Orçamento"`
-- `BottomNav.tsx` linha 11: `"Lançam."` -> `"Orçam."`
-- `PlannedEntries.tsx` linha 104: `"Lançamentos"` -> `"Orçamento"`
-- `PlannedEntries.tsx` linha 127: `"Novo Lançamento"` -> `"Novo Orçamento"`
+### Tabela Supabase: `category_budgets`
+- `id`, `user_id`, `category`, `month` (YYYY-MM), `amount`
+- UNIQUE constraint em `(user_id, category, month)`
+- Subcategorias de investimentos usam prefixo: `investimentos:emergencia`, `investimentos:renda_fixa`, etc.
 
----
+### Tipo TypeScript: `CategoryBudget`
+- `{ id, category, month, amount }` em `types.ts`
+- Adicionado ao `AppData`
 
-## 2. Painel de Resumo Orcamentario (PlannedEntries.tsx)
+### CRUD: `pocketbase.ts`
+- `fetchCategoryBudgets(userId, month)`
+- `upsertCategoryBudget(userId, category, month, amount)`
+- `deleteCategoryBudget(id)`
 
-Inserir um `glass-card` entre o header e o formulario (antes da linha 118) que:
-
-- Filtra `data.plannedEntries` do mes atual (por `dueDate`)
-- Agrupa por `category`, usando `Math.abs(amount)` para cada entrada (RESSALVA 1)
-- Separa visualmente receitas (`amount > 0`) de saidas (`amount < 0`)
-- Exibe apenas o Total Orcado de Saidas (Despesas + Investimentos) para foco no controlo de gastos (RESSALVA 3)
-- Destaca a linha de Investimentos com cor `text-primary`
-
-```text
-+------------------------------------------+
-|  Orcamento do Mes - Marco 2026           |
-|  Receitas:                               |
-|    Salario ................. R$ 12.000    |
-|  Saidas Orcadas:                         |
-|    Habitacao ............... R$ 1.500     |
-|    Investimentos ........... R$ 1.800     |
-|  Total Saidas: R$ 5.300                  |
-+------------------------------------------+
-```
+### DataContext
+- Estado `categoryBudgets` carregado no `loadData`
+- Métodos expostos: `upsertCategoryBudget`, `deleteCategoryBudget`, `loadBudgetsForMonth`
+- Listener Realtime para INSERT/UPDATE/DELETE na tabela `category_budgets`
 
 ---
 
-## 3. Refatoracao do LiberdadeFinanceira.tsx
+## UI: PlannedEntries.tsx (reescrita completa)
 
-### 3a. Nova logica de Meta (denominador)
-**Antes:** `meta = totalRevenue * (aportePercentual / 100)` (15% das receitas)
-**Depois:** `meta = soma de Math.abs(amount) de plannedEntries do mes atual com category === 'investimentos'`
+1. **Seletor de Mês**: Setas esquerda/direita com label capitalizado
+2. **3 Cards de Resumo**: Planejado, Realizado, Economia
+3. **Barra de Progresso Mestre**: h-4 rounded-full com cores dinâmicas (verde/amarelo/vermelho)
+4. **Lista de Categorias**: Ícone colorido + nome + barra fina + R$ Realizado / R$ Orçado (XX%) + badge de status
+5. **Investimentos Accordion**: Expandível com 6 subcategorias editáveis individualmente
+6. **Edição Inline**: Input com máscara de moeda + botão Salvar **desabilitado durante a requisição** + check verde de sucesso por 1.5s
 
-- Usa `Math.abs(amount)` para proteger contra sinais invertidos (RESSALVA 1)
-- Remove referencia a `aportePercentual` e a receitas
-- Titulo muda de `"Liberdade Financeira (15%)"` para `"Liberdade Financeira"`
+## Dashboard Integration
+- **LiberdadeFinanceira**: Busca orçado de `categoryBudgets` (investimentos:*)
+- **ExpensePieChart**: Busca orçado pendente de `categoryBudgets` em vez de `plannedEntries`
+- **CashFlowChart**: Mantém `plannedEntries` (precisa de datas específicas)
 
-### 3b. Nova logica de Realizado (numerador)
-**Antes:** soma de transacoes reais + planned nao conciliados + desapego vendido
-**Depois:** apenas transacoes REAIS com:
-- `category === 'investimentos'`
-- `reconciliationStatus !== 'ja_conciliado'` (exclui duplicados)
-- Nao existe campo `status === 'ignorado'` no tipo Transaction, portanto o filtro `reconciliationStatus !== 'ja_conciliado'` ja e suficiente para excluir lancamentos invalidos (RESSALVA 2 adaptada)
-- Usa `Math.abs(amount)` (RESSALVA 1)
-
-Formula: `percent = meta > 0 ? (totalRealizado / meta) * 100 : 0`
-
-### 3c. Lista fixa de subcategorias (sempre visivel)
-- Remove o `.filter((key) => (subcatTotals[key] || 0) > 0)` da linha 86
-- Mapeia TODOS os 6 itens de `INVESTMENT_SUBCATEGORY_ORDER`, mostrando `R$ 0` quando vazio
-- Remove o bloco condicional `{breakdown.length > 0 && ...}` - a composicao aparece SEMPRE
-- Remove o bloco "sem subcategoria"
-
-### 3d. Meta por subcategoria (orcado vs realizado)
-Para cada subcategoria:
-- `orcado`: `Math.abs()` dos plannedEntries do mes com essa subcategory
-- `realizado`: `Math.abs()` das transacoes reais do mes com essa subcategory
-- Barra de progresso: `width = min((realizado / orcado) * 100, 100)%`
-- Exibicao: `Emergencia  ████░░░  R$ 200 / R$ 500`
-
----
-
-## 4. Ficheiros afetados
-
-| Ficheiro | Alteracoes |
-|---|---|
-| `DesktopSidebar.tsx` | 1 label |
-| `BottomNav.tsx` | 1 label |
-| `PlannedEntries.tsx` | 2 labels + novo painel de resumo |
-| `LiberdadeFinanceira.tsx` | Refatoracao completa da logica |
-
-## 5. Protecoes matematicas aplicadas
-
-1. **Math.abs()** em todos os calculos de orcado e realizado
-2. **Filtro rigoroso** no realizado: `reconciliationStatus !== 'ja_conciliado'` (unico filtro de exclusao disponivel no tipo Transaction)
-3. **Separacao clara** receitas vs saidas no painel de orcamento
-
+## Ficheiros alterados
+- `src/lib/types.ts` — `CategoryBudget` + `AppData.categoryBudgets`
+- `src/lib/pocketbase.ts` — CRUD category_budgets
+- `src/lib/mock-pocketbase.ts` — Stubs mock
+- `src/contexts/DataContext.tsx` — Estado + métodos + Realtime
+- `src/pages/PlannedEntries.tsx` — Reescrita completa
+- `src/components/dashboard/LiberdadeFinanceira.tsx` — Usa categoryBudgets
+- `src/components/dashboard/ExpensePieChart.tsx` — Usa categoryBudgets

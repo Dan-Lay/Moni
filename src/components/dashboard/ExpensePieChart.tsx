@@ -52,15 +52,17 @@ export const ExpensePieChart = () => {
       realizado[label] = (realizado[label] || 0) + val;
     }
 
-    // 2. Orçado pendente: plannedEntries do mês atual, amount < 0, conciliado === false
+    // 2. Orçado pendente: categoryBudgets do mês atual — o que ainda falta sair
+    const currentMonthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
     const orcadoPendente: Record<string, number> = {};
-    for (const entry of data.plannedEntries) {
-      if (entry.conciliado) continue;
-      if (entry.amount >= 0) continue;
-      const d = new Date(entry.dueDate);
-      if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-      const label = CATEGORY_LABELS[entry.category as keyof typeof CATEGORY_LABELS] || entry.category;
-      orcadoPendente[label] = (orcadoPendente[label] || 0) + Math.abs(entry.amount);
+    for (const budget of (data.categoryBudgets ?? [])) {
+      if (budget.month !== currentMonthKey) continue;
+      if (budget.category.includes(":")) continue; // skip subcategories
+      const label = CATEGORY_LABELS[budget.category as keyof typeof CATEGORY_LABELS] || budget.category;
+      const budgetAmt = budget.amount;
+      const realizadoAmt = realizado[label] || 0;
+      const pendente = Math.max(0, budgetAmt - realizadoAmt);
+      if (pendente > 0) orcadoPendente[label] = (orcadoPendente[label] || 0) + pendente;
     }
 
     // 3. Merge: valor_final = realizado + orcado_pendente
@@ -74,7 +76,7 @@ export const ExpensePieChart = () => {
       .sort((a, b) => b.value - a.value);
 
     return merged.length > 0 ? merged : null;
-  }, [finance.categoryBreakdown, data.plannedEntries]);
+  }, [finance.categoryBreakdown, data.categoryBudgets]);
 
   if (isLoading) return <ChartSkeleton />;
 

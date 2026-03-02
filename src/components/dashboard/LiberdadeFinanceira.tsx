@@ -30,19 +30,18 @@ export const LiberdadeFinanceira = () => {
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
-  // ── Meta (denominador): soma orçada de investimentos do mês ──
-  const plannedInvestments = (data.plannedEntries ?? []).filter((e) => {
-    if (e.category !== "investimentos") return false;
-    const d = new Date(e.dueDate);
-    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-  });
-  const meta = plannedInvestments.reduce((a, e) => a + Math.abs(e.amount), 0);
+  // ── Meta (denominador): soma orçada de investimentos do mês (categoryBudgets) ──
+  const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+  const investmentBudgets = (data.categoryBudgets ?? []).filter(
+    (b) => b.category.startsWith("investimentos") && b.month === currentMonthKey
+  );
+  const meta = investmentBudgets.reduce((a, b) => a + Math.abs(b.amount), 0);
 
   // Orçado por subcategoria
   const subcatOrcado: Record<string, number> = {};
-  for (const e of plannedInvestments) {
-    const sub = e.subcategory || "sem_sub";
-    subcatOrcado[sub] = (subcatOrcado[sub] || 0) + Math.abs(e.amount);
+  for (const b of investmentBudgets) {
+    const sub = b.category.includes(":") ? b.category.split(":")[1] : "sem_sub";
+    subcatOrcado[sub] = (subcatOrcado[sub] || 0) + Math.abs(b.amount);
   }
 
   // ── Realizado (numerador): transações REAIS de investimento, excluindo duplicados ──

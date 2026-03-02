@@ -111,6 +111,33 @@ export async function deleteTransactions(ids: string[]): Promise<void> {
   transactions = transactions.filter((t) => !idSet.has(t.id));
 }
 
+// ── Category Budgets mock ──
+import { CategoryBudget } from "./types";
+let categoryBudgets: CategoryBudget[] = [];
+
+export async function fetchCategoryBudgets(_userId: string, _month: string): Promise<CategoryBudget[]> {
+  return categoryBudgets.filter((b) => b.month === _month);
+}
+
+export async function upsertCategoryBudget(_userId: string, category: string, month: string, amount: number): Promise<CategoryBudget> {
+  const idx = categoryBudgets.findIndex((b) => b.category === category && b.month === month);
+  if (idx >= 0) {
+    categoryBudgets[idx] = { ...categoryBudgets[idx], amount };
+    return categoryBudgets[idx];
+  }
+  const created: CategoryBudget = { id: genId("mock_cb"), category, month, amount };
+  categoryBudgets.push(created);
+  return created;
+}
+
+export async function deleteCategoryBudget(id: string): Promise<void> {
+  categoryBudgets = categoryBudgets.filter((b) => b.id !== id);
+}
+
+export function mapCategoryBudget(r: Record<string, any>): CategoryBudget {
+  return { id: r.id, category: r.category, month: r.month, amount: Number(r.amount) || 0 };
+}
+
 // ── Mock auth ──
 export const mockUser = MOCK_USER;
 
