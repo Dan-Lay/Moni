@@ -76,6 +76,12 @@ export async function createPlannedEntry(entry: PlannedEntry, _userId: string): 
   return created;
 }
 
+export async function createPlannedEntries(entries: PlannedEntry[], _userId: string): Promise<PlannedEntry[]> {
+  const created = entries.map((e) => ({ ...e, id: genId("mock_pe") }));
+  plannedEntries.push(...created);
+  return created;
+}
+
 export async function updatePlannedEntryRemote(id: string, patch: Partial<PlannedEntry>): Promise<PlannedEntry> {
   const idx = plannedEntries.findIndex((e) => e.id === id);
   if (idx < 0) throw new Error("Planned entry not found");

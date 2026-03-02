@@ -5,6 +5,7 @@ import {
   RECURRENCE_LABELS, TransactionCategory, RecurrenceType, SpouseProfile, PlannedEntry, toISODate,
   INVESTMENT_SUBCATEGORY_LABELS, InvestmentSubcategory,
 } from "@/lib/types";
+import { addDays, addMonths, addYears, startOfMonth, isBefore } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, CheckCircle2, Circle, CalendarClock, RefreshCw, PencilLine, Check, X,
@@ -52,7 +53,7 @@ const emptyForm = {
 };
 
 const PlannedEntriesPage = () => {
-  const { data, addPlannedEntry, updatePlannedEntry, deletePlannedEntry } = useFinance();
+  const { data, addPlannedEntry, addPlannedEntries, updatePlannedEntry, deletePlannedEntry } = useFinance();
   const categoryLabels = useCategoryLabels();
   const entries = [...(data.plannedEntries ?? [])].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
@@ -60,6 +61,7 @@ const PlannedEntriesPage = () => {
 
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const pending = entries.filter((e) => !e.conciliado);
   const conciliated = entries.filter((e) => e.conciliado);
@@ -72,8 +74,8 @@ const PlannedEntriesPage = () => {
     const amt = parseCurrencyInput(form.amount);
     if (!form.name || amt === 0) return;
     const signedAmount = form.type === "debito" ? -Math.abs(amt) : Math.abs(amt);
-    const entry: PlannedEntry = {
-      id: `pe_${Date.now()}`,
+
+    const baseEntry: Omit<PlannedEntry, "id"> = {
       name: form.name,
       amount: signedAmount,
       category: form.category,
@@ -84,9 +86,41 @@ const PlannedEntriesPage = () => {
       conciliado: false,
       createdAt: toISODate(new Date().toISOString()),
     };
-    await addPlannedEntry(entry);
-    setForm(emptyForm);
-    setShowForm(false);
+
+    setIsSaving(true);
+    try {
+      if (form.recurrence === "unico") {
+        await addPlannedEntry({ ...baseEntry, id: `pe_${Date.now()}` });
+      } else {
+        // Generate recurring entries up to 12 months from now
+        const groupId = crypto.randomUUID();
+        const limit = addMonths(startOfMonth(new Date()), 13);
+        const allEntries: PlannedEntry[] = [];
+        let currentDate = new Date(form.dueDate);
+        let idx = 0;
+
+        while (isBefore(currentDate, limit)) {
+          allEntries.push({
+            ...baseEntry,
+            id: `pe_${Date.now()}_${idx}`,
+            dueDate: toISODate(currentDate.toISOString().split("T")[0]),
+            groupId,
+          });
+          idx++;
+          switch (form.recurrence) {
+            case "semanal":   currentDate = addDays(currentDate, 7); break;
+            case "quinzenal": currentDate = addDays(currentDate, 14); break;
+            case "mensal":    currentDate = addMonths(new Date(form.dueDate), idx); break;
+            case "anual":     currentDate = addYears(new Date(form.dueDate), idx); break;
+          }
+        }
+        await addPlannedEntries(allEntries);
+      }
+      setForm(emptyForm);
+      setShowForm(false);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function handleToggleConciliated(id: string, current: boolean) {
@@ -283,8 +317,10 @@ const PlannedEntriesPage = () => {
               </Select>
             </div>
             <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button size="sm" onClick={handleAdd}>Salvar</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} disabled={isSaving}>Cancelar</Button>
+              <Button size="sm" onClick={handleAdd} disabled={isSaving}>
+                {isSaving ? "Lançando orçamento..." : "Salvar"}
+              </Button>
             </div>
           </motion.div>
         )}

@@ -221,10 +221,10 @@ export function expandRecurrence(entry: PlannedEntry, months = 12): PlannedEntry
   for (let i = 0; i < months; i++) {
     const d = new Date(start);
     switch (entry.recurrence) {
-      case "mensal":   d.setMonth(d.getMonth() + i); break;
+      case "mensal":    d.setMonth(d.getMonth() + i); break;
       case "quinzenal": d.setDate(d.getDate() + i * 15); break;
-      case "diario":   d.setDate(d.getDate() + i); break;
-      case "anual":    d.setFullYear(d.getFullYear() + i); break;
+      case "semanal":   d.setDate(d.getDate() + i * 7); break;
+      case "anual":     d.setFullYear(d.getFullYear() + i); break;
     }
     projections.push({
       ...entry,

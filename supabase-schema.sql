@@ -97,15 +97,18 @@ CREATE TABLE IF NOT EXISTS public.planned_entries (
   name           TEXT NOT NULL,
   amount         NUMERIC(12, 2) NOT NULL DEFAULT 0,
   category       TEXT NOT NULL DEFAULT 'outros',
+  subcategory    TEXT,
   due_date       DATE,
-  recurrence     TEXT DEFAULT 'unico' CHECK (recurrence IN ('unico', 'mensal', 'anual')),
+  recurrence     TEXT DEFAULT 'unico' CHECK (recurrence IN ('unico', 'semanal', 'quinzenal', 'mensal', 'anual')),
   spouse_profile TEXT DEFAULT 'familia' CHECK (spouse_profile IN ('marido', 'esposa', 'familia')),
   conciliado     BOOLEAN DEFAULT FALSE,
   real_amount    NUMERIC(12, 2),
+  group_id       TEXT,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_planned_user_id ON public.planned_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_planned_group_id ON public.planned_entries(group_id);
 
 -- ── 5. Financial Config ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.financial_config (
