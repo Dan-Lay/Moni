@@ -54,7 +54,7 @@ interface FinanceContextType {
   reload: () => void;
 }
 
-const FinanceContext = createContext<FinanceContextType | null>(null);
+const FinanceContext = createContext<FinanceContextType | null>(null); // rebuild
 
 export const useFinance = () => {
   const ctx = useContext(FinanceContext);
